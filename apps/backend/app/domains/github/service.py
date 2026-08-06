@@ -140,6 +140,9 @@ class RepositoryService:
         language: str | None,
         visibility: str | None,
         status: AnalysisStatus | None,
+        archived: bool | None = None,
+        disabled: bool | None = None,
+        imported_after: datetime | None = None,
         sort: str,
         order: str,
     ) -> tuple[list[Repository], int]:
@@ -151,6 +154,9 @@ class RepositoryService:
             language=language,
             visibility=visibility,
             status=status,
+            archived=archived,
+            disabled=disabled,
+            imported_after=imported_after,
             sort=sort,
             order=order,
         )

@@ -334,3 +334,61 @@ def test_list_search_filter_sort_and_pagination(client: TestClient) -> None:
     ids1 = {i["id"] for i in page1["items"]}
     ids2 = {i["id"] for i in page2["items"]}
     assert not (ids1 & ids2)
+
+
+def test_list_archived_disabled_and_imported_after_filters(client: TestClient) -> None:
+    _register(client)
+    _active_fake.repos = {
+        "octocat/alpha": _repo_data("octocat/alpha", provider_repo_id="1", archived=True),
+        "octocat/beta": _repo_data("octocat/beta", provider_repo_id="2", disabled=True),
+        "octocat/gamma": _repo_data("octocat/gamma", provider_repo_id="3"),
+    }
+    for name in _active_fake.repos:
+        _import(client, name)
+
+    archived = client.get("/api/v1/repositories", params={"archived": "true"}).json()
+    assert [i["full_name"] for i in archived["items"]] == ["octocat/alpha"]
+
+    disabled = client.get("/api/v1/repositories", params={"disabled": "true"}).json()
+    assert [i["full_name"] for i in disabled["items"]] == ["octocat/beta"]
+
+    not_archived = client.get("/api/v1/repositories", params={"archived": "false"}).json()
+    assert not_archived["total"] == 2
+
+    # "Imported" = import recency: repos tracked since the cutoff.
+    fresh = client.get(
+        "/api/v1/repositories", params={"imported_after": "2030-01-01T00:00:00Z"}
+    ).json()
+    assert fresh["total"] == 0
+    old = client.get(
+        "/api/v1/repositories", params={"imported_after": "2000-01-01T00:00:00Z"}
+    ).json()
+    assert old["total"] == 3
+
+
+def test_list_sorts_by_forks_language_and_size(client: TestClient) -> None:
+    _register(client)
+    _active_fake.repos = {
+        "octocat/alpha": _repo_data(
+            "octocat/alpha", provider_repo_id="1", language="Go", forks=2, size_kb=500
+        ),
+        "octocat/beta": _repo_data(
+            "octocat/beta", provider_repo_id="2", language="Python", forks=10, size_kb=50
+        ),
+        "octocat/gamma": _repo_data(
+            "octocat/gamma", provider_repo_id="3", language="Rust", forks=5, size_kb=2000
+        ),
+    }
+    for name in _active_fake.repos:
+        _import(client, name)
+
+    by_forks = client.get("/api/v1/repositories", params={"sort": "forks", "order": "desc"}).json()
+    assert [i["forks"] for i in by_forks["items"]] == [10, 5, 2]
+
+    by_size = client.get("/api/v1/repositories", params={"sort": "size_kb", "order": "desc"}).json()
+    assert [i["size_kb"] for i in by_size["items"]] == [2000, 500, 50]
+
+    by_language = client.get(
+        "/api/v1/repositories", params={"sort": "language", "order": "asc"}
+    ).json()
+    assert [i["language"] for i in by_language["items"]] == ["Go", "Python", "Rust"]

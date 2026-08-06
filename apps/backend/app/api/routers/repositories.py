@@ -8,6 +8,7 @@ parameter route.
 """
 
 import uuid
+from datetime import datetime
 from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, Query, Response, status
@@ -84,7 +85,12 @@ async def list_repositories(
     language: Annotated[str | None, Query(max_length=64)] = None,
     visibility: Annotated[Literal["public", "private"] | None, Query()] = None,
     status: Annotated[AnalysisStatus | None, Query(alias="analysis_status")] = None,
-    sort: Literal["name", "stars", "pushed_at", "created_at", "updated_at"] = "updated_at",
+    archived: Annotated[bool | None, Query()] = None,
+    disabled: Annotated[bool | None, Query()] = None,
+    imported_after: Annotated[datetime | None, Query()] = None,
+    sort: Literal[
+        "name", "stars", "forks", "language", "size_kb", "pushed_at", "created_at", "updated_at"
+    ] = "updated_at",
     order: Literal["asc", "desc"] = "desc",
 ) -> RepositoryListResponse:
     """List the authenticated user's repositories with pagination and filters."""
@@ -96,6 +102,9 @@ async def list_repositories(
         language=language,
         visibility=visibility,
         status=status,
+        archived=archived,
+        disabled=disabled,
+        imported_after=imported_after,
         sort=sort,
         order=order,
     )

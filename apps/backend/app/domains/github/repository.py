@@ -7,6 +7,7 @@ sort and pagination contract of `GET /repositories`.
 
 import uuid
 from collections.abc import Sequence
+from datetime import datetime
 from typing import Any
 
 from sqlalchemy import func, or_, select
@@ -22,6 +23,9 @@ from app.models.repository import AnalysisStatus, Repository
 SORT_COLUMNS: dict[str, Any] = {
     "name": Repository.name,
     "stars": Repository.stars,
+    "forks": Repository.forks,
+    "language": Repository.language,
+    "size_kb": Repository.size_kb,
     "pushed_at": Repository.pushed_at,
     "created_at": Repository.created_at,
     "updated_at": Repository.updated_at,
@@ -60,6 +64,9 @@ class RepositoryRepository:
         language: str | None,
         visibility: str | None,
         status: AnalysisStatus | None,
+        archived: bool | None,
+        disabled: bool | None,
+        imported_after: datetime | None,
         sort: str,
         order: str,
     ) -> tuple[Sequence[Repository], int]:
@@ -88,6 +95,17 @@ class RepositoryRepository:
         if status is not None:
             stmt = stmt.where(Repository.analysis_status == status)
             count_stmt = count_stmt.where(Repository.analysis_status == status)
+        if archived is not None:
+            stmt = stmt.where(Repository.archived == archived)
+            count_stmt = count_stmt.where(Repository.archived == archived)
+        if disabled is not None:
+            stmt = stmt.where(Repository.disabled == disabled)
+            count_stmt = count_stmt.where(Repository.disabled == disabled)
+        if imported_after is not None:
+            # "Imported" is interpreted as import recency: when EvoShield
+            # started tracking the repository (`created_at`).
+            stmt = stmt.where(Repository.created_at >= imported_after)
+            count_stmt = count_stmt.where(Repository.created_at >= imported_after)
 
         total = int((await self._session.execute(count_stmt)).scalar_one())
 
