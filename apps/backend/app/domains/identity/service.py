@@ -18,6 +18,7 @@ from app.domains.identity.jwt import create_access_token
 from app.domains.identity.ports import AuthProvider, AuthResult, AuthUser, TokenClaims
 from app.domains.identity.repository import UserRepository
 from app.models.user import User
+from app.repositories.provider_token import ProviderTokenRepository
 
 logger = logging.getLogger(__name__)
 
@@ -50,6 +51,10 @@ class IdentityService:
         access_token = await self._github.exchange_code(code)
         auth_user = await self._github.fetch_user(access_token)
         await self._sync_profile(auth_user)
+        # Sprint 3A: persist the token so the repository integration layer
+        # can call the GitHub API as this user (import/sync). The github
+        # domain reads it via `ProviderTokenRepository` — never re-exchanges.
+        await self._store_github_token(auth_user, access_token)
 
         settings = get_settings()
         token = create_access_token(sub=auth_user.id, email=auth_user.email, provider="github")
@@ -76,6 +81,19 @@ class IdentityService:
         async with session_factory() as session:
             repo = UserRepository(session)
             await repo.upsert_from_auth(auth_user)
+            await session.commit()
+
+    async def _store_github_token(self, auth_user: AuthUser, access_token: str) -> None:
+        """Persist the GitHub access token for the profile's user."""
+        user_id = resolve_user_id(auth_user.provider, auth_user.id)
+        async with session_factory() as session:
+            repo = ProviderTokenRepository(session)
+            await repo.upsert(
+                user_id=user_id,
+                provider="github",
+                access_token=access_token,
+                scope="read:user user:email repo",
+            )
             await session.commit()
 
     async def _load_or_create_profile(self, claims: TokenClaims) -> User | None:

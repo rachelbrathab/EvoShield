@@ -10,8 +10,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import Settings, get_settings
 from app.core.exceptions import UnauthorizedError
 from app.db.session import session_factory
+from app.domains.github.service import RepositoryService
 from app.domains.identity.service import IdentityService
 from app.models.user import User
+from app.repositories.provider_token import ProviderTokenRepository
 
 _bearer_scheme = HTTPBearer(auto_error=False)
 
@@ -37,6 +39,19 @@ def get_identity_service() -> IdentityService:
     from app.domains.identity.factory import build_identity_service
 
     return build_identity_service()
+
+
+def get_repository_service(session: Annotated[AsyncSession, Depends(get_db)]) -> RepositoryService:
+    """Provide a request-scoped repository integration service.
+
+    The service receives the request session and the shared token store;
+    the GitHub client is created per operation, bound to the authenticated
+    user's access token (see `RepositoryService._client_for`).
+    """
+    return RepositoryService(
+        session=session,
+        token_provider=ProviderTokenRepository(session),
+    )
 
 
 def _extract_token(

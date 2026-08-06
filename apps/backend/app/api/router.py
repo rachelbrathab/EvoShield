@@ -2,11 +2,10 @@
 
 from fastapi import APIRouter
 
-from app.api.routers import auth, health
+from app.api.routers import auth, health, repositories
 
 api_router = APIRouter()
 
-# Health/liveness probes. New resources mount here as sprints land:
-#   api_router.include_router(repositories.router, prefix="/repositories", …)
 api_router.include_router(health.router, tags=["system"])
 api_router.include_router(auth.router, prefix="/auth", tags=["auth"])
+api_router.include_router(repositories.router, prefix="/repositories", tags=["repositories"])

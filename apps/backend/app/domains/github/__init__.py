@@ -1,8 +1,10 @@
-"""GitHub integration domain (Sprint 3+).
+"""GitHub/source-provider domain — repository integration (Sprint 3A).
 
-Owns GitHub OAuth, the GitHub API client, and repository metadata ingestion.
-
-Dependency rule: this domain talks to the GitHub API via a thin client and
-exposes normalized repository data to downstream domains (analysis, scanners)
-through the API/worker layer — it never imports sibling domains.
+Owns repository ingestion for *any* source provider behind a port
+(`ports.py`): the `GitHubAPIClient` adapter isolates all GitHub-specific
+code, `RepositoryService` holds the business rules (idempotent import,
+sync, deletion, scoped queries), and `RepositoryRepository` is the data
+access for the `repositories` aggregate. GitLab/Bitbucket/Azure DevOps are
+future adapters implementing the same `GitHubRepoProvider` port — no
+downstream changes required (docs/module-dependency.md).
 """

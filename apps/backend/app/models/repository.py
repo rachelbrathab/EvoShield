@@ -16,7 +16,16 @@ from datetime import datetime
 from enum import StrEnum
 from typing import TYPE_CHECKING
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, String, UniqueConstraint
+from sqlalchemy import (
+    JSON,
+    BigInteger,
+    Boolean,
+    DateTime,
+    ForeignKey,
+    Integer,
+    String,
+    UniqueConstraint,
+)
 from sqlalchemy import Enum as SAEnum
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -97,3 +106,25 @@ class Repository(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     last_analysis_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     # Opaque id of the most recent analysis job (worker/queue job id).
     last_analysis_job_id: Mapped[str | None] = mapped_column(String(64))
+
+    # ── GitHub metadata (Sprint 3A ingestion/sync writes these) ─────────
+    language: Mapped[str | None] = mapped_column(String(64))
+    stars: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    forks: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    open_issues: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    # JSON array of topic strings (dialect-safe: native JSONB on Postgres,
+    # TEXT-encoded on SQLite).
+    topics: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
+    # SPDX license identifier, e.g. "MIT" (GitHub `license.spdx_id`).
+    license: Mapped[str | None] = mapped_column(String(128))
+    # GitHub's `size` is reported in KiB.
+    size_kb: Mapped[int | None] = mapped_column(BigInteger)
+    archived: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    disabled: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    # Upstream timestamps (distinct from our created_at/updated_at bookkeeping).
+    provider_created_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    provider_updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # GitHub `pushed_at` — what repository cards show as "last updated".
+    pushed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), index=True)
+    # When we last refreshed metadata from the provider (import or sync).
+    last_synced_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

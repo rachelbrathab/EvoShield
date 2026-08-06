@@ -34,7 +34,10 @@ class GitHubOAuthClient:
         params = {
             "client_id": self._settings.github_client_id,
             "redirect_uri": redirect_uri or "",
-            "scope": "read:user user:email",
+            # Sprint 3A: `repo` lets EvoShield list and import the user's
+            # (private) repositories and refresh their metadata. Narrower
+            # scopes would break private-repo listing for the import flow.
+            "scope": "read:user user:email repo",
             "state": state,
         }
         return f"{self.AUTHORIZE_URL}?{urlencode(params)}"

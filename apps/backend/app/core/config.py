@@ -70,6 +70,9 @@ class Settings(BaseSettings):
     # Absolute URL GitHub redirects back to after authorization, e.g.
     #   http://localhost:8000/api/v1/auth/oauth/github/callback
     github_redirect_uri: str | None = None
+    # REST API base (override for GitHub Enterprise). The repository
+    # integration client (Sprint 3A) targets this.
+    github_api_url: str = "https://api.github.com"
 
     # ── Observability ──────────────────────────────────────────────────
     log_level: str = "INFO"
