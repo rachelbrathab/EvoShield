@@ -90,6 +90,19 @@ diagram.
   typed client is generated from the backend OpenAPI spec in a later sprint.
 - **State**: React state + server data first. TanStack Query is considered in
   Sprint 4+ once data-heavy views land.
+- **List-view state is URL-persisted (Sprint 3B)**: the repository list
+  serializes its whole toolbar (search, filters, sort + direction, page,
+  page-size) into the query string via the pure `lib/repository-view.ts`
+  module — refresh, share and back/forward restore the exact view. Heavier
+  interactive surfaces (the import dialog's GitHub browser) are lazy-loaded
+  with `next/dynamic`.
+- **Error UX is code-aware (Sprint 3B)**: `lib/repository-errors.ts` maps
+  backend error codes (`github_rate_limited`, `github_token_invalid`,
+  `github_not_connected`, `github_forbidden`, `not_found`, network failures)
+  to friendly copy and the right action (retry vs. reconnect).
+- **Frontend tests (Sprint 3B)**: Vitest + React Testing Library cover the
+  pure view-state/search/format/error modules and key presentational
+  components (pagination, card, empty/error states, search highlight).
 
 ## 5. Data layer
 
@@ -107,6 +120,13 @@ diagram.
   table: scanners get their own tables (Sprint 5) and only flip
   `analysis_status` on the repository row. See `docs/database.md` and
   `docs/adr/0006-analysis-status.md`.
+- **Analysis runs are a first-class aggregate (Sprint 4A).** The `analysis`
+  domain owns the *lifecycle of a run* — `analysis_runs` records one
+  execution per repository (status, timing, version, failure reason); the
+  orchestrator mirrors run state onto `repositories.analysis_status` so
+  cards/details update without redesign. Scanners plug in behind an
+  `AnalysisProvider` port and are selected by settings — adding Trivy later
+  is one adapter + one config value (see `docs/adr/0008-analysis-domain.md`).
 - See `docs/adr/0001-database-layer.md` for the full decision.
 
 ## 6. Security posture
@@ -126,6 +146,10 @@ diagram.
   so browser JS never touches the raw token; the bearer header is accepted
   for API clients. GitHub OAuth uses a state cookie to prevent login CSRF.
   See `docs/adr/0005-identity-auth.md`.
+- **GitHub integration (Sprint 3A)** — the OAuth callback persists the GitHub
+  access token in `provider_tokens`; the `github` domain calls the GitHub
+  REST API through a provider port (`GitHubRepoProvider`). See
+  `docs/adr/0007-github-integration.md`.
 
 ## 7. Observability
 
@@ -139,11 +163,27 @@ diagram.
 - Sprint 2 ✅: authentication in `domains/identity/` (provider port + JWT
   sessions + GitHub OAuth). Sprint 3's GitHub repository integration reuses
   the authenticated user/session established here.
-- Sprint 3: GitHub API client + repository ingestion in `domains/github/`
-  (defines the source-provider port; GitLab/Bitbucket/Azure DevOps implement
-  it later). The `repositories` table and the `RepositoryRead` contract
-  already exist (Sprint 3 preparation), so ingestion writes against a stable
-  schema that carries the analysis-status lifecycle.
+- Sprint 3A ✅: repository integration in `domains/github/` — a source-provider
+  port (`GitHubRepoProvider`) with a GitHub REST adapter, idempotent import,
+  in-place sync, owner-scoped queries, and a GitHub repo browser for the
+  import dialog. The identity service persists the GitHub OAuth access token
+  in `provider_tokens` (Sprint 3A), so the API can act as the user. The
+  `repositories` table and the `RepositoryRead` contract (Sprint 3
+  preparation) carry the GitHub metadata; GitLab/Bitbucket/Azure DevOps later
+  ship as new adapters implementing the same port.
+- Sprint 3B ✅: repository UX polish — URL-persisted list view state
+  (search/filter/sort/pagination), search highlighting, topic chips,
+  copy-URL/clone actions, code-aware empty/error states, lazy-loaded
+  dialogs, and the first frontend test suite (Vitest + RTL).
+- Sprint 4A ✅: analysis infrastructure in `domains/analysis/` — the
+  `AnalysisRun` aggregate + orchestrator state machine, an
+  `AnalysisProvider` port with a fake simulation adapter (configurable
+  delay/failure/cancel), timeout + cancellation, owner-scoped run API
+  (start/list/detail/cancel/delete), and a run history UI with live polling
+  and a timeline. No scanner runs yet; the orchestration layer is the
+  "operating system" Sprint 5 scanners plug into (see
+  `docs/adr/0008-analysis-domain.md`).
+- Sprint 4B: real analysis capabilities on top of the orchestration layer.
 - Sprint 5: scanner orchestration in `domains/scanners/`, run as background
   jobs from `app/workers/`. Pipelines report progress by transitioning
   `Repository.analysis_status` (already migrated) and write findings to their

@@ -56,6 +56,22 @@ Then open:
 Per-service instructions live in `apps/frontend/README.md` and
 `apps/backend/README.md`.
 
+Frontend tests (Vitest + React Testing Library): `cd apps/frontend && npm test`.
+
+## Sprint reports
+
+Every sprint ships a report in `docs/sprint-plans/` — goal, architecture
+review, files, acceptance criteria and validation:
+
+| Report | Sprint |
+| --- | --- |
+| `001-sprint-1-project-setup.md` | 1 — project setup |
+| `002-sprint-2-authentication.md` | 2 — authentication |
+| `003-analysis-status-foundation.md` | 3 prep — analysis-status foundation |
+| `004-sprint-3a-repository-integration.md` | 3A — repository integration |
+| `005-sprint-3b-ux-polish.md` | 3B — repository UX polish |
+| `006-sprint-4a-analysis-infrastructure.md` | 4A — analysis infrastructure |
+
 ## Sprint roadmap
 
 | Sprint | Focus | Status |
@@ -63,8 +79,10 @@ Per-service instructions live in `apps/frontend/README.md` and
 | 1 | Project setup — monorepo, CI, landing page | ✅ done |
 | 2 | Authentication — identity domain, JWT sessions, GitHub OAuth | ✅ done |
 | 3 (prep) | Analysis-status foundation — `repositories` table, status enum, badge | ✅ done |
-| 3 | GitHub integration (OAuth + API) | planned |
-| 4 | Repository management | planned |
+| 3A | Repository integration — GitHub connect, import, sync, browse, detail | ✅ done |
+| 3B | Repository UX polish — URL-persisted search/filter/sort/pagination, cards, states, Vitest | ✅ done |
+| 4A | Analysis infrastructure — `analysis_runs` history, orchestrator state machine, provider port + fake adapter, run history/timeline UI | ✅ done |
+| 4B | Analysis capabilities on top of the orchestration layer | planned |
 | 5 | Security scanner integration | planned |
 | 6 | Repository intelligence | planned |
 | 7 | Prediction engine | planned |
@@ -83,3 +101,5 @@ Per-service instructions live in `apps/frontend/README.md` and
 - Environment-driven configuration, no hardcoded secrets
 - Structured logging and a shared exception taxonomy
 - Every sprint ships with acceptance criteria + tests + docs
+- Backend: pytest on SQLite locally and PostgreSQL in CI; frontend: Vitest
+  component/unit tests for pure logic and key UI states

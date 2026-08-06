@@ -10,6 +10,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import Settings, get_settings
 from app.core.exceptions import UnauthorizedError
 from app.db.session import session_factory
+from app.domains.analysis.factory import build_analysis_provider
+from app.domains.analysis.orchestrator import AnalysisOrchestrator
 from app.domains.github.service import RepositoryService
 from app.domains.identity.service import IdentityService
 from app.models.user import User
@@ -51,6 +53,26 @@ def get_repository_service(session: Annotated[AsyncSession, Depends(get_db)]) ->
     return RepositoryService(
         session=session,
         token_provider=ProviderTokenRepository(session),
+    )
+
+
+def get_analysis_orchestrator(
+    session: Annotated[AsyncSession, Depends(get_db)],
+) -> AnalysisOrchestrator:
+    """Provide a request-scoped analysis orchestrator.
+
+    The orchestrator receives the request session for synchronous work plus a
+    session factory for the background execution task (which outlives the
+    request). The provider comes from settings via the domain factory — the
+    fake today, real scanners later.
+    """
+    settings = get_settings()
+    return AnalysisOrchestrator(
+        session=session,
+        session_factory=session_factory,
+        provider=build_analysis_provider(settings),
+        queued_hold_seconds=settings.analysis_queued_hold_seconds,
+        timeout_seconds=settings.analysis_run_timeout_seconds,
     )
 
 

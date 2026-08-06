@@ -18,13 +18,17 @@ import {
 import { AnalysisStatusBadge } from "@/components/repositories/analysis-status-badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
-const COMING_SOON = [
+const LIVE_MODULES = [
   {
-    title: "Connect repositories",
-    description: "Link a GitHub repository to start scanning its supply chain.",
+    title: "Manage repositories",
+    description:
+      "Connect GitHub, import repositories and keep their metadata in sync. Analysis arrives in the next sprints.",
     icon: GitBranch,
     href: "/app/repositories",
   },
+];
+
+const COMING_SOON = [
   {
     title: "Run security analysis",
     description: "SBOM, vulnerabilities, secrets and code analysis in one pass.",
@@ -79,7 +83,7 @@ export default function AppDashboardPage() {
             <div>
               <dt className="text-xs text-muted-foreground">Pipeline stage</dt>
               <dd className="mt-1 text-sm font-medium text-foreground">
-                Sprint 3 · Repository integration
+                Sprint 3A · Repository integration
               </dd>
             </div>
           </dl>
@@ -95,8 +99,8 @@ export default function AppDashboardPage() {
           </CardTitle>
           <CardDescription className="text-xs leading-5">
             Every repository carries one of these lifecycle states. Repository
-            cards and detail pages will render them once repository
-            integration lands — no analysis functionality yet.
+            cards and detail pages render them — analysis transitions arrive
+            with the scan pipeline.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -113,16 +117,45 @@ export default function AppDashboardPage() {
         </CardContent>
       </Card>
 
-      {/* Coming-soon modules */}
+      {/* Live modules (Sprint 3A) */}
       <section>
         <div className="mb-4 flex items-center justify-between">
-          <h3 className="text-sm font-medium text-foreground">Coming soon</h3>
+          <h3 className="text-sm font-medium text-foreground">Available now</h3>
           <Link
             href="/app/repositories"
             className="inline-flex items-center gap-1 text-xs text-primary transition-colors hover:text-primary/80"
           >
-            Repositories <ArrowRight className="size-3" />
+            Open repositories <ArrowRight className="size-3" />
           </Link>
+        </div>
+        <div className="grid gap-4 sm:grid-cols-3">
+          {LIVE_MODULES.map((item) => (
+            <Link key={item.title} href={item.href} className="group">
+              <Card className="h-full border-primary/30 transition-colors group-hover:border-primary/60">
+                <CardHeader>
+                  <div className="mb-3 flex size-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                    <item.icon className="size-5" />
+                  </div>
+                  <CardTitle className="text-sm">{item.title}</CardTitle>
+                  <CardDescription className="text-xs leading-5">
+                    {item.description}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <span className="inline-flex items-center gap-1 text-xs text-primary transition-opacity group-hover:opacity-100">
+                    Explore <ArrowRight className="size-3" />
+                  </span>
+                </CardContent>
+              </Card>
+            </Link>
+          ))}
+        </div>
+      </section>
+
+      {/* Coming-soon modules */}
+      <section>
+        <div className="mb-4">
+          <h3 className="text-sm font-medium text-foreground">Coming soon</h3>
         </div>
         <div className="grid gap-4 sm:grid-cols-3">
           {COMING_SOON.map((item) => (

@@ -54,9 +54,10 @@ type ErrorPayload = { error?: { code?: string; message?: string } };
 /**
  * Shared fetch wrapper: JSON in/out, credentials for the session cookie,
  * and normalized errors. All auth endpoints exchange the session via the
- * httpOnly cookie set by the backend.
+ * httpOnly cookie set by the backend. Exported so feature API clients
+ * (e.g. `@/lib/repositories`) reuse the same contract.
  */
-async function apiFetch<T>(
+export async function apiFetch<T>(
   path: string,
   init: RequestInit = {},
   signal?: AbortSignal,

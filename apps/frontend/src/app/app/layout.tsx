@@ -25,13 +25,21 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Logo } from "@/components/site/logo";
 
-const NAV_SECTIONS = [
+type NavItem = {
+  label: string;
+  href: string;
+  icon: typeof Activity;
+  /** Marked when the route is a placeholder for a future sprint. */
+  soon?: boolean;
+};
+
+const NAV_SECTIONS: Array<{ label: string; items: NavItem[] }> = [
   {
     label: "Workspace",
     items: [
       { label: "Dashboard", href: "/app", icon: LayoutDashboard },
-      { label: "Repositories", href: "/app/repositories", icon: GitBranch, soon: true },
-      { label: "Analysis", href: "/app/analysis", icon: Activity, soon: true },
+      { label: "Repositories", href: "/app/repositories", icon: GitBranch },
+      { label: "Analysis", href: "/app/analysis", icon: Activity },
     ],
   },
   {

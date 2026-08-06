@@ -90,15 +90,16 @@ flowchart TD
    multi-domain flows; domains stay ignorant of each other.
 4. **External tools** (GitHub, scanners, LLM) are reached through ports
    defined inside domains; implementations are adapters. This is what makes
-   GitLab/Bitbucket/Azure DevOps/Kubernetes additions non-breaking (Sprint 3
-   defines the `github` source-provider port; GitLab et al. implement it).
+   GitLab/Bitbucket/Azure DevOps/Kubernetes additions non-breaking (Sprint 3A
+   ships the `github` source-provider port in `domains/github/ports.py`;
+   GitLab et al. implement it).
 
 ## Extensibility matrix
 
 | New capability | What changes |
 | --- | --- |
-| GitLab / Bitbucket / Azure DevOps | New provider adapter implementing the source-provider port (Sprint 3). No downstream changes. |
-| New scanner | New `Scanner` adapter in `scanners/`; findings already normalized. |
+| GitLab / Bitbucket / Azure DevOps | New provider adapter implementing the source-provider port (`domains/github/ports.py`, Sprint 3A) + their OAuth token storage in `provider_tokens`. No downstream domain changes. |
+| New scanner | New `AnalysisProvider` adapter in `domains/analysis/providers/` (Sprint 4A port; Trivy/Syft/Grype/Semgrep/Gitleaks land in Sprint 5) + `ANALYSIS_PROVIDER` value. Findings are normalized in `scanners/`. |
 | Kubernetes target analysis | New analysis capability in `analysis/` (or a new domain); orchestrated like the rest. |
 | Renovate integration | New domain or adapter under `github/`/`analysis/`; wired in `workers/`. |
 | New LLM vendor | New chat adapter behind the `chat` port. |

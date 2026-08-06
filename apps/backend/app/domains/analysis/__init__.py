@@ -1,8 +1,25 @@
-"""Repository analysis domain (Sprint 4+).
+"""Analysis domain — the orchestration layer every future scanner plugs into.
 
-Owns repository-level analysis: structure, metadata, dependency manifests
-and the inputs the scanner engine consumes.
-
-Dependency rule: receives normalized repository data from the GitHub domain
-(via orchestration) and hands analysis artifacts to the scanners domain.
+Sprint 4A ships the *infrastructure* only: the run state machine
+(`AnalysisOrchestrator`), the `AnalysisProvider` port, the simulation
+provider, and the run aggregate. Real scanners arrive in Sprint 5 as new
+providers selected via `factory.py`.
 """
+
+from app.domains.analysis.factory import build_analysis_provider
+from app.domains.analysis.orchestrator import AnalysisOrchestrator
+from app.domains.analysis.ports import (
+    AnalysisCancelledError,
+    AnalysisExecutionContext,
+    AnalysisProvider,
+)
+from app.domains.analysis.providers import FakeAnalysisProvider
+
+__all__ = [
+    "AnalysisCancelledError",
+    "AnalysisExecutionContext",
+    "AnalysisOrchestrator",
+    "AnalysisProvider",
+    "FakeAnalysisProvider",
+    "build_analysis_provider",
+]
