@@ -33,9 +33,7 @@ def upgrade() -> None:
         ),
     )
     op.add_column("users", sa.Column("auth_provider_sub", sa.String(length=255), nullable=True))
-    op.add_column(
-        "users", sa.Column("last_login_at", sa.DateTime(timezone=True), nullable=True)
-    )
+    op.add_column("users", sa.Column("last_login_at", sa.DateTime(timezone=True), nullable=True))
     op.create_index("ix_users_auth_provider_sub", "users", ["auth_provider_sub"])
 
     op.create_table(

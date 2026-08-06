@@ -93,19 +93,13 @@ def upgrade() -> None:
             server_default=sa.func.now(),
             nullable=False,
         ),
-        sa.UniqueConstraint(
-            "owner_id", "full_name", name="uq_repositories_owner_full_name"
-        ),
+        sa.UniqueConstraint("owner_id", "full_name", name="uq_repositories_owner_full_name"),
     )
     op.create_index("ix_repositories_owner_id", "repositories", ["owner_id"])
     op.create_index("ix_repositories_provider", "repositories", ["provider"])
-    op.create_index(
-        "ix_repositories_provider_repo_id", "repositories", ["provider_repo_id"]
-    )
+    op.create_index("ix_repositories_provider_repo_id", "repositories", ["provider_repo_id"])
     op.create_index("ix_repositories_full_name", "repositories", ["full_name"])
-    op.create_index(
-        "ix_repositories_analysis_status", "repositories", ["analysis_status"]
-    )
+    op.create_index("ix_repositories_analysis_status", "repositories", ["analysis_status"])
 
 
 def downgrade() -> None:
