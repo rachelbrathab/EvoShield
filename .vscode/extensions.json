@@ -1,0 +1,10 @@
+{
+  "recommendations": [
+    "dbaeumer.vscode-eslint",
+    "bradlc.vscode-tailwindcss",
+    "ms-python.python",
+    "charliermarsh.ruff",
+    "EditorConfig.EditorConfig",
+    "astral-sh.uv"
+  ]
+}

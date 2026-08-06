@@ -1,0 +1,14 @@
+# Normalize line endings — LF everywhere (see .editorconfig).
+* text=auto eol=lf
+
+# Shell scripts must stay LF (CRLF breaks shebang/exec).
+*.sh text eol=lf
+
+# Lockfiles are generated artifacts — treat as text but don't let CRLF in.
+package-lock.json text eol=lf
+uv.lock text eol=lf
+
+# Diff helpers
+*.png binary
+*.ico binary
+*.svg text

@@ -1,0 +1,61 @@
+# ── OS ────────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+
+# ── Node / Next.js ────────────────────────────────────────────────────
+node_modules/
+.next/
+out/
+build/
+*.tsbuildinfo
+npm-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.pnpm-store/
+
+# ── Python ────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+ENV/
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+dist/
+build/
+
+# ── Environment & secrets ─────────────────────────────────────────────
+.env
+.env.*
+!.env.example
+!.env.local.example
+
+# ── Local databases ───────────────────────────────────────────────────
+*.db
+*.sqlite3
+
+# ── Logs ──────────────────────────────────────────────────────────────
+*.log
+logs/
+
+# ── Freebuff ──────────────────────────────────────────────────────────
+.freebuff/
+
+# ── Docker ────────────────────────────────────────────────────────────
+docker-compose.override.yml
+
+# ── IDEs ──────────────────────────────────────────────────────────────
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+.idea/
+
+# ── Misc ──────────────────────────────────────────────────────────────
+.cache/
+tmp/
+temp/

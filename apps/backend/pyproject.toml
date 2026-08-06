@@ -1,0 +1,61 @@
+[project]
+name = "evoshield-backend"
+version = "0.1.0"
+description = "EvoShield API — predictive software supply chain risk assessment"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.115,<1.0",
+    "uvicorn[standard]>=0.32,<1.0",
+    "pydantic>=2.9,<3.0",
+    "pydantic-settings>=2.6,<3.0",
+    "sqlalchemy[asyncio]>=2.0.36,<3.0",
+    "asyncpg>=0.30,<1.0",
+    "aiosqlite>=0.20,<1.0",
+    "alembic>=1.14,<2.0",
+    "httpx>=0.27,<1.0",
+    "pyjwt>=2.9,<3.0",
+    "pwdlib[argon2]>=0.2,<1.0",
+    "email-validator>=2.2,<3.0",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3,<9.0",
+    "pytest-asyncio>=0.24,<1.0",
+    "ruff>=0.8,<1.0",
+    "pyright>=1.1.390,<2.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["app"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.pyright]
+# Pin type-checking strictness so CI results don't drift across pyright
+# versions. "basic" enforces annotations and obvious errors without the
+# strict-mode noise; bump deliberately if the codebase earns it.
+typeCheckingMode = "basic"
+include = ["app", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "ASYNC", "RUF"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+# FastAPI's TestClient import path triggers an upstream deprecation warning
+# (starlette.testclient → httpx2). We use TestClient until the ecosystem
+# settles; keep test output clean in the meantime.
+filterwarnings = [
+    "ignore::starlette.exceptions.StarletteDeprecationWarning",
+    # test_jwt deliberately decodes with a too-short wrong key.
+    "ignore::jwt.warnings.InsecureKeyLengthWarning",
+]

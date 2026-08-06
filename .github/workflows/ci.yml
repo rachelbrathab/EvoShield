@@ -1,0 +1,117 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: Backend (ruff + pyright + pytest + migrations)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/backend
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.12"
+
+      - name: Sync dependencies
+        run: uv sync --frozen
+
+      - name: Lint (ruff check)
+        run: uv run ruff check .
+
+      - name: Format check (ruff format)
+        run: uv run ruff format --check .
+
+      - name: Type check (pyright)
+        run: uv run pyright app tests
+
+      - name: Tests (pytest on SQLite)
+        run: uv run pytest -q
+
+      - name: Migrations apply on fresh SQLite DB
+        run: |
+          rm -f evoshield-dev.db
+          uv run alembic upgrade head
+
+  backend-postgres:
+    # The production target is Supabase PostgreSQL — exercise migrations and
+    # the test suite against a real Postgres in CI (see tests/conftest.py).
+    name: Backend (PostgreSQL 16)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: evoshield
+          POSTGRES_PASSWORD: evoshield
+          POSTGRES_DB: evoshield
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U evoshield"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    defaults:
+      run:
+        working-directory: apps/backend
+    env:
+      DATABASE_URL: postgresql+asyncpg://evoshield:evoshield@localhost:5432/evoshield
+      ENVIRONMENT: test
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.12"
+
+      - name: Sync dependencies
+        run: uv sync --frozen
+
+      - name: Migrations apply on PostgreSQL
+        run: uv run alembic upgrade head
+
+      - name: Tests (pytest on PostgreSQL)
+        run: uv run pytest -q
+
+  frontend:
+    name: Frontend (lint + typecheck + build)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          # Pinned explicitly — node-version-file resolution is ambiguous when
+          # combined with defaults.run.working-directory.
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: apps/frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint (eslint)
+        run: npm run lint
+
+      - name: Type check (tsc)
+        run: npx tsc --noEmit
+
+      - name: Production build
+        run: npm run build
