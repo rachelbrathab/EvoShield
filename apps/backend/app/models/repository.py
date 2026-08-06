@@ -14,12 +14,16 @@ pipeline only ever flips `analysis_status` on the repository row.
 import uuid
 from datetime import datetime
 from enum import StrEnum
+from typing import TYPE_CHECKING
 
 from sqlalchemy import Boolean, DateTime, ForeignKey, String, UniqueConstraint
 from sqlalchemy import Enum as SAEnum
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, TimestampMixin, UUIDPrimaryKeyMixin
+
+if TYPE_CHECKING:
+    from app.models.user import User
 
 
 class AnalysisStatus(StrEnum):
@@ -55,6 +59,10 @@ class Repository(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     owner_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("users.id", ondelete="CASCADE"), index=True, nullable=False
     )
+    # Declared relationship (not a bare FK) so the unit of work inserts the
+    # owner `users` row before this row on FK-enforcing dialects (Postgres);
+    # bare FKs do not order INSERTs. Same fix as AuthCredential.user.
+    owner: Mapped["User"] = relationship()
     provider: Mapped[str] = mapped_column(String(32), default="github", index=True, nullable=False)
     # Upstream's own id (e.g. GitHub's numeric repository id); populated by
     # Sprint 3 ingestion. Kept as string so numeric and non-numeric ids fit.

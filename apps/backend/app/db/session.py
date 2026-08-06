@@ -13,12 +13,27 @@ from sqlalchemy.ext.asyncio import (
     async_sessionmaker,
     create_async_engine,
 )
+from sqlalchemy.pool import NullPool
 
 from app.core.config import get_settings
 
 _settings = get_settings()
 
-_engine_kwargs: dict[str, Any] = {"pool_pre_ping": True}
+_engine_kwargs: dict[str, Any] = {}
+if _settings.environment == "test":
+    # Tests run in several distinct event loops (conftest's asyncio.run()
+    # schema reset, TestClient's portal loop, pytest-asyncio) while sharing
+    # one module-level engine. asyncpg connections are bound to the loop they
+    # were created on, so a persistent queue pool hands a connection from one
+    # test's loop to the next test's loop and raises
+    # "got Future attached to a different loop" on Postgres (SQLite is immune:
+    # aiosqlite runs each connection on its own thread). NullPool opens and
+    # closes a connection per checkout, so nothing is ever reused across
+    # loops — and pool_pre_ping is unnecessary (every checkout is fresh).
+    # Production keeps the default pool with pre-ping.
+    _engine_kwargs["poolclass"] = NullPool
+else:
+    _engine_kwargs["pool_pre_ping"] = True
 if _settings.database_url.startswith("sqlite"):
     _engine_kwargs["connect_args"] = {"check_same_thread": False}
 else:

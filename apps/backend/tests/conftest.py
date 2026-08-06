@@ -14,7 +14,10 @@ from collections.abc import Iterator
 # setdefault (not assignment) so an explicit DATABASE_URL from CI/Postgres
 # service container is respected; SQLite is only the local default.
 os.environ.setdefault("DATABASE_URL", "sqlite+aiosqlite:///./test.db")
-os.environ.setdefault("ENVIRONMENT", "test")
+# Forced (not setdefault): tests must always run in test mode — the app's
+# NullPool guard (app/db/session.py) and docs/schema behavior depend on it,
+# and a developer's exported ENVIRONMENT must not leak into the test run.
+os.environ["ENVIRONMENT"] = "test"
 
 import pytest
 from fastapi.testclient import TestClient
