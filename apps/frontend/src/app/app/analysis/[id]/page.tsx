@@ -28,6 +28,7 @@ import { formatDate, relativeTime } from "@/lib/format";
 
 import { AnalysisRunStatusBadge } from "@/components/analysis/analysis-run-status-badge";
 import { AnalysisTimeline } from "@/components/analysis/analysis-timeline";
+import { FindingsSection } from "@/components/analysis/findings-section";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -307,6 +308,12 @@ export default function AnalysisDetailPage() {
           ) : null}
         </CardContent>
       </Card>
+
+      {/* Security findings (Sprint 5A) */}
+      <FindingsSection
+        analysisRunId={run.id}
+        isRunActive={isRunActive(run.status)}
+      />
     </div>
   );
 }

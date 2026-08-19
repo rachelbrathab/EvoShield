@@ -10,7 +10,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import Settings, get_settings
 from app.core.exceptions import UnauthorizedError
 from app.db.session import session_factory
-from app.domains.analysis.factory import build_analysis_provider
 from app.domains.analysis.orchestrator import AnalysisOrchestrator
 from app.domains.github.service import RepositoryService
 from app.domains.identity.service import IdentityService
@@ -67,12 +66,52 @@ def get_analysis_orchestrator(
     fake today, real scanners later.
     """
     settings = get_settings()
+    provider = _build_provider_with_findings(settings)
     return AnalysisOrchestrator(
         session=session,
         session_factory=session_factory,
-        provider=build_analysis_provider(settings),
+        provider=provider,
         queued_hold_seconds=settings.analysis_queued_hold_seconds,
         timeout_seconds=settings.analysis_run_timeout_seconds,
+    )
+
+
+def _build_provider_with_findings(settings: Settings):
+    """Build the analysis provider with a findings persistence callback.
+
+    When a real scanner (Trivy) completes a scan, it produces findings that
+    need to be persisted to the database.  The callback creates a fresh
+    session from the factory and writes findings through the repository.
+    """
+    from app.domains.scanners.repository import FindingRepository
+
+    if settings.analysis_provider == "fake":
+        from app.domains.analysis.providers.fake import FakeAnalysisProvider
+
+        return FakeAnalysisProvider(
+            delay_seconds=settings.analysis_fake_delay_seconds,
+            fail=settings.analysis_fake_fail,
+        )
+
+    if settings.analysis_provider == "trivy":
+        from app.domains.scanners.providers.trivy.provider import TrivyProvider
+
+        async def _persist_findings(findings):
+            async with session_factory() as s:
+                repo = FindingRepository(s)
+                await repo.create_many(findings)
+                await s.commit()
+
+        return TrivyProvider(
+            executable=settings.trivy_executable,
+            timeout_seconds=settings.trivy_timeout_seconds,
+            findings_callback=_persist_findings,
+        )
+
+    from app.core.exceptions import ProviderError
+
+    raise ProviderError(
+        f"Unknown analysis provider: {settings.analysis_provider!r}. Available: fake, trivy."
     )
 
 
