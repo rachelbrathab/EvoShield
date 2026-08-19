@@ -97,6 +97,12 @@ class Settings(BaseSettings):
     # Timeout for a single Trivy scan (seconds).
     trivy_timeout_seconds: float = 120.0
 
+    # ── Gitleaks (Sprint 5C.2) ────────────────────────────────────────
+    # Gitleaks executable path (must be in PATH, or an absolute path).
+    gitleaks_executable: str = "gitleaks"
+    # Timeout for a single Gitleaks scan (seconds).
+    gitleaks_timeout_seconds: float = 120.0
+
     # ── Repository Acquisition (Sprint 5B) ────────────────────────────
     # Maximum repository size (MB) to accept for scanning.
     # Repositories larger than this are rejected to prevent resource exhaustion.

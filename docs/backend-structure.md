@@ -101,13 +101,16 @@ app/domains/scanners/
 ├── workspace.py                ScannerWorkspace — temporary directory lifecycle
 ├── repository.py               FindingRepository — owner-scoped finding queries
 ├── scanner_run_repository.py   ScannerRunRepository — per-scanner execution tracking
-├── registry.py                 Scanner name → provider factory registry (Sprint 5C.1)
-└── providers/
+├── registry.py                 Scanner name → provider factory registry (Sprint 5C.1)    └── providers/
     ├── github_source.py        GitHubRepositorySource — clones repos via stored tokens
-    └── trivy/
-        ├── provider.py         TrivyProvider — drop-in AnalysisProvider adapter
-        ├── runner.py           TrivyRunner — safe subprocess execution (shell=False)
-        └── parser.py           TrivyResultParser — JSON output → normalized findings
+    ├── trivy/
+    │   ├── provider.py         TrivyProvider — drop-in AnalysisProvider adapter
+    │   ├── runner.py           TrivyRunner — safe subprocess execution (shell=False)
+    │   └── parser.py           TrivyResultParser — JSON output → normalized findings
+    └── gitleaks/
+        ├── provider.py         GitleaksProvider — secret detection adapter
+        ├── runner.py           GitleaksRunner — safe subprocess execution
+        └── parser.py           GitleaksResultParser — JSON parsing with mandatory secret redaction
 ```
 
 Scanners land as sibling adapters under `providers/` — the

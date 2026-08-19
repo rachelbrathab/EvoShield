@@ -74,6 +74,7 @@ review, files, acceptance criteria and validation:
 | `007-sprint-5a-scanner-foundation-trivy.md` | 5A — scanner foundation + Trivy |
 | `008-sprint-5b-repository-acquisition.md` | 5B — repository acquisition & scan execution |
 | `009-sprint-5c1-multi-scanner-orchestration.md` | 5C.1 — multi-scanner orchestration foundation |
+| `010-sprint-5c2-gitleaks.md` | 5C.2 — Gitleaks secret detection |
 
 ## Sprint roadmap
 
@@ -88,6 +89,7 @@ review, files, acceptance criteria and validation:
 | 5A | Scanner foundation + Trivy — normalized findings, Trivy adapter, findings API/UI, subprocess safety | ✅ done |
 | 5B | Repository acquisition & scan execution — GitHub clone, workspace lifecycle, token security | ✅ done |
 | 5C.1 | Multi-scanner orchestration — ScannerRun model, provider registry, sequential execution | ✅ done |
+| 5C.2 | Gitleaks secret detection — secret scanning, redaction, multi-scanner pipeline | ✅ done |
 | 6 | Repository intelligence | planned |
 | 7 | Prediction engine | planned |
 | 8 | Dashboard | planned |

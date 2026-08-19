@@ -35,9 +35,19 @@ def _build_trivy(settings: Settings) -> AnalysisProvider:
     )
 
 
+def _build_gitleaks(settings: Settings) -> AnalysisProvider:
+    from app.domains.scanners.providers.gitleaks.provider import GitleaksProvider
+
+    return GitleaksProvider(
+        executable=settings.gitleaks_executable,
+        timeout_seconds=settings.gitleaks_timeout_seconds,
+    )
+
+
 # Registry: scanner_name → factory function
 _REGISTRY: dict[str, BuilderFactory] = {
     "trivy": _build_trivy,
+    "gitleaks": _build_gitleaks,
 }
 
 
