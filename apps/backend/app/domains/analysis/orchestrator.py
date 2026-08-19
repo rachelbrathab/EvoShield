@@ -20,7 +20,7 @@ API do not change.
 import asyncio
 import logging
 import uuid
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 from contextlib import AbstractAsyncContextManager
 from datetime import UTC, datetime
 
@@ -78,6 +78,9 @@ class AnalysisOrchestrator:
         provider: AnalysisProvider,
         queued_hold_seconds: float = 2.0,
         timeout_seconds: float = 120.0,
+        token_resolver_factory: (
+            Callable[[uuid.UUID], Callable[[], Awaitable[str | None]]] | None
+        ) = None,
     ) -> None:
         self._session = session
         # Request-scoped runs repository (bound to the injected session).
@@ -87,10 +90,13 @@ class AnalysisOrchestrator:
         self._provider = provider
         self._queued_hold_seconds = max(0.0, queued_hold_seconds)
         self._timeout_seconds = max(0.1, timeout_seconds)
+        self._token_resolver_factory = token_resolver_factory
         # Per-run cancellation events (also lets the background task abort).
         self._cancel_events: dict[uuid.UUID, asyncio.Event] = {}
         # Strong references so in-flight tasks are not garbage-collected.
         self._tasks: set[asyncio.Task[None]] = set()
+        # Owner mapping for background tasks (run_id → owner_id).
+        self._run_owners: dict[uuid.UUID, uuid.UUID] = {}
 
     # ── Public API ──────────────────────────────────────────────────────
     async def start(
@@ -137,7 +143,7 @@ class AnalysisOrchestrator:
             ) from None
         await self._session.refresh(run)
 
-        self._schedule(run.id)
+        self._schedule(run.id, owner_id)
         logger.info(
             "Analysis run %s queued for repository %s (provider=%s)",
             run.id,
@@ -222,7 +228,8 @@ class AnalysisOrchestrator:
         await self._session.commit()
 
     # ── Background execution ────────────────────────────────────────────
-    def _schedule(self, run_id: uuid.UUID) -> None:
+    def _schedule(self, run_id: uuid.UUID, owner_id: uuid.UUID) -> None:
+        self._run_owners[run_id] = owner_id
         task = asyncio.create_task(self._execute_run(run_id))
         self._tasks.add(task)
         task.add_done_callback(self._tasks.discard)
@@ -246,11 +253,22 @@ class AnalysisOrchestrator:
             except ConflictError:
                 return  # cancelled between the reload and the transition
 
+            owner_id = self._run_owners.pop(run_id, uuid.UUID(int=0))
+            token_resolver: Callable[[], Awaitable[str | None]]
+            if self._token_resolver_factory is not None:
+                token_resolver = self._token_resolver_factory(owner_id)
+            else:
+                from app.domains.analysis.ports import _make_noop_resolver
+
+                token_resolver = _make_noop_resolver()
+
             context = AnalysisExecutionContext(
                 run_id=run_id,
                 repository_id=run.repository_id,
                 full_name=full_name or "",
                 cancel_event=cancel_event,
+                owner_id=owner_id,
+                token_resolver=token_resolver,
             )
             try:
                 await asyncio.wait_for(

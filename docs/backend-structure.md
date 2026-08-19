@@ -17,7 +17,7 @@ apps/backend/
 │   │   ├── health/           Liveness + dependency probes (reference impl.)
 │   │   ├── github/           GitHub integration (Sprint 3A ✅) — client, service, repository, contracts
 │   │   ├── analysis/         Analysis infrastructure (Sprint 4A ✅) — orchestrator, provider port, fake provider
-│   │   ├── scanners/         Scanner engine: Trivy/Syft/Grype/Semgrep/Gitleaks (Sprint 5)
+│   │   ├── scanners/         Scanner engine: Trivy/Syft/Grype/Semgrep/Gitleaks (Sprint 5A/5B) — including GitHubRepositorySource for repo acquisition
 │   │   ├── intelligence/     Temporal repository intelligence (Sprint 6)
 │   │   ├── prediction/       Future-risk engine (Sprint 7)
 │   │   ├── recommendation/   Remediation guidance (Sprint 8)

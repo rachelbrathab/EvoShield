@@ -72,6 +72,7 @@ review, files, acceptance criteria and validation:
 | `005-sprint-3b-ux-polish.md` | 3B — repository UX polish |
 | `006-sprint-4a-analysis-infrastructure.md` | 4A — analysis infrastructure |
 | `007-sprint-5a-scanner-foundation-trivy.md` | 5A — scanner foundation + Trivy |
+| `008-sprint-5b-repository-acquisition.md` | 5B — repository acquisition & scan execution |
 
 ## Sprint roadmap
 
@@ -84,7 +85,7 @@ review, files, acceptance criteria and validation:
 | 3B | Repository UX polish — URL-persisted search/filter/sort/pagination, cards, states, Vitest | ✅ done |
 | 4A | Analysis infrastructure — `analysis_runs` history, orchestrator state machine, provider port + fake adapter, run history/timeline UI | ✅ done |
 | 5A | Scanner foundation + Trivy — normalized findings, Trivy adapter, findings API/UI, subprocess safety | ✅ done |
-| 5B | Repository cloning + extended scanning | planned |
+| 5B | Repository acquisition & scan execution — GitHub clone, workspace lifecycle, token security | ✅ done |
 | 6 | Repository intelligence | planned |
 | 6 | Repository intelligence | planned |
 | 7 | Prediction engine | planned |

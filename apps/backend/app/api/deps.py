@@ -1,6 +1,7 @@
 """Shared FastAPI dependencies (dependency-injection plumbing)."""
 
-from collections.abc import AsyncGenerator
+import uuid
+from collections.abc import AsyncGenerator, Awaitable, Callable
 from typing import Annotated
 
 from fastapi import Depends, Request
@@ -55,6 +56,17 @@ def get_repository_service(session: Annotated[AsyncSession, Depends(get_db)]) ->
     )
 
 
+def _trivy_token_factory(owner_id: uuid.UUID) -> Callable[[], Awaitable[str | None]]:
+    """Create an async callable that resolves the GitHub token for *owner_id*."""
+
+    async def _resolve() -> str | None:
+        async with session_factory() as s:
+            token_repo = ProviderTokenRepository(s)
+            return await token_repo.get_access_token(owner_id, "github")
+
+    return _resolve
+
+
 def get_analysis_orchestrator(
     session: Annotated[AsyncSession, Depends(get_db)],
 ) -> AnalysisOrchestrator:
@@ -64,15 +76,22 @@ def get_analysis_orchestrator(
     session factory for the background execution task (which outlives the
     request). The provider comes from settings via the domain factory — the
     fake today, real scanners later.
+
+    When a real scanner (Trivy) is selected, a token resolver factory is
+    injected so the background task can obtain the user's GitHub access
+    token on demand (Sprint 5B).  The factory returns an async callable
+    because the background task runs inside the event loop.
     """
     settings = get_settings()
     provider = _build_provider_with_findings(settings)
+
     return AnalysisOrchestrator(
         session=session,
         session_factory=session_factory,
         provider=provider,
         queued_hold_seconds=settings.analysis_queued_hold_seconds,
         timeout_seconds=settings.analysis_run_timeout_seconds,
+        token_resolver_factory=_trivy_token_factory,
     )
 
 

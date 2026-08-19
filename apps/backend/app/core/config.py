@@ -92,6 +92,15 @@ class Settings(BaseSettings):
     # Timeout for a single Trivy scan (seconds).
     trivy_timeout_seconds: float = 120.0
 
+    # ── Repository Acquisition (Sprint 5B) ────────────────────────────
+    # Maximum repository size (MB) to accept for scanning.
+    # Repositories larger than this are rejected to prevent resource exhaustion.
+    repository_max_size_mb: float = 500.0
+    # Timeout for git clone operations (seconds).
+    repository_clone_timeout_seconds: float = 120.0
+    # Git executable path.
+    git_executable: str = "git"
+
     # ── Observability ──────────────────────────────────────────────────
     log_level: str = "INFO"
 
