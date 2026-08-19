@@ -6,6 +6,7 @@ from app.models.credential import AuthCredential
 from app.models.finding import Finding, FindingType, Severity
 from app.models.provider_token import ProviderToken
 from app.models.repository import AnalysisStatus, Repository
+from app.models.scanner_run import ScannerRun, ScannerRunStatus
 from app.models.user import User
 
 __all__ = [
@@ -18,6 +19,8 @@ __all__ = [
     "FindingType",
     "ProviderToken",
     "Repository",
+    "ScannerRun",
+    "ScannerRunStatus",
     "Severity",
     "TimestampMixin",
     "UUIDPrimaryKeyMixin",

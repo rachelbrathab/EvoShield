@@ -74,9 +74,12 @@ class Settings(BaseSettings):
     # integration client (Sprint 3A) targets this.
     github_api_url: str = "https://api.github.com"
 
-    # ── Analysis (Sprint 4A / 5A) ─────────────────────────────────────
+    # ── Analysis (Sprint 4A / 5A / 5C.1) ─────────────────────────────
     # Provider selection: "fake" (simulation), "trivy" (real scanning).
     analysis_provider: str = "fake"
+    # Comma-separated list of scanners to run (Sprint 5C.1 multi-scanner).
+    # Overrides analysis_provider when set.  Example: "trivy" or "trivy,gitleaks"
+    analysis_scanners: str | None = None
     # How long the fake provider "scans" (seconds).
     analysis_fake_delay_seconds: float = 4.0
     # Dev knob: make the fake provider fail so the FAILED path can be seen.
@@ -85,6 +88,8 @@ class Settings(BaseSettings):
     analysis_queued_hold_seconds: float = 2.0
     # Hard cap on one provider execution; on expiry the run is marked FAILED.
     analysis_run_timeout_seconds: float = 120.0
+    # Per-scanner timeout (Sprint 5C.1).
+    scanner_timeout_seconds: float = 300.0
 
     # ── Trivy (Sprint 5A) ─────────────────────────────────────────────
     # Trivy executable path (must be in PATH, or an absolute path).

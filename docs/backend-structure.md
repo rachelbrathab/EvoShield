@@ -49,7 +49,7 @@ apps/backend/
 | `domains/` | Business logic per domain. | **The key change**: replaces the generic `services/` bucket. Each domain owns its logic + schemas, so unrelated code never mixes. |
 | `domains/identity/` | Register/login/logout, JWT sessions, GitHub OAuth, user profiles. | Auth is its own bounded context: providers (local + Supabase) sit behind a port, so swapping identity backends never touches other domains (ADR 0005). |
 | `domains/analysis/` | Run lifecycle orchestration — `AnalysisRun` state machine, `AnalysisProvider` port, fake provider, factory, owner-scoped data access, API contracts. | The "operating system" for the analysis engine: scanners plug in as provider adapters, so adding Trivy/Syft/etc. never touches the API, DB or UI (ADR 0008). |
-| `models/` | ORM entities — `User`, `AuthCredential`, `ProviderToken`, `Repository` (with its `AnalysisStatus` lifecycle enum + GitHub metadata), and `AnalysisRun` (run history, Sprint 4A). | Single source of truth for schema (Alembic autogenerate). `Repository` carries the analysis-status trio plus provider metadata (Sprint 3A); `ProviderToken` stores per-user upstream access tokens; `AnalysisRun` records per-run history. |
+| `models/` | ORM entities — `User`, `AuthCredential`, `ProviderToken`, `Repository` (with its `AnalysisStatus` lifecycle enum + GitHub metadata), `AnalysisRun` (run history, Sprint 4A), `ScannerRun` (per-scanner execution tracking, Sprint 5C.1), and `Finding` (normalized security findings, Sprint 5A). | Single source of truth for schema (Alembic autogenerate). `Repository` carries the analysis-status trio plus provider metadata (Sprint 3A); `ProviderToken` stores per-user upstream access tokens; `AnalysisRun` records per-run history; `ScannerRun` tracks individual scanner execution within an analysis; `Finding` stores normalized vulnerability/secret/SAST results. |
 | `repositories/` | Query surface. | Repos isolate SQL from business logic; domain-owned when a domain has private aggregates. `provider_token.py` is shared because both `identity` (write) and `github` (read) touch the table. |
 | `schemas/` | Shared contracts only. | Domain-specific schemas live in the domain; this folder holds cross-domain DTOs. |
 | `workers/` | Background pipelines. | Scan orchestration etc. must not block the request path. |
@@ -92,7 +92,29 @@ app/domains/analysis/
     └── fake.py         FakeAnalysisProvider — simulated run (delay/fail/cancel), the Sprint 4A default
 ```
 
-Scanners (Sprint 5) land as sibling adapters under `providers/` — the
+## Scanner domain layout (Sprint 5A/5B/5C.1)
+
+```
+app/domains/scanners/
+├── ports.py                    ScannerProvider protocol, ScannerFinding dataclass
+├── enums.py                    Severity, FindingType enums (VARCHAR pattern, migration-free)
+├── workspace.py                ScannerWorkspace — temporary directory lifecycle
+├── repository.py               FindingRepository — owner-scoped finding queries
+├── scanner_run_repository.py   ScannerRunRepository — per-scanner execution tracking
+├── registry.py                 Scanner name → provider factory registry (Sprint 5C.1)
+└── providers/
+    ├── github_source.py        GitHubRepositorySource — clones repos via stored tokens
+    └── trivy/
+        ├── provider.py         TrivyProvider — drop-in AnalysisProvider adapter
+        ├── runner.py           TrivyRunner — safe subprocess execution (shell=False)
+        └── parser.py           TrivyResultParser — JSON output → normalized findings
+```
+
+Scanners land as sibling adapters under `providers/` — the
 orchestrator, repository and API stay untouched (see `docs/adr/0008-analysis-domain.md`).
+
+The scanner registry (Sprint 5C.1) makes adding new scanners a
+registration-only change: implement the provider, register in `_REGISTRY`,
+add to `ANALYSIS_SCANNERS`.  No orchestrator or API modifications needed.
 
 See `docs/module-dependency.md` for the diagram.

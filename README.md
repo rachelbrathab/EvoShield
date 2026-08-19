@@ -73,6 +73,7 @@ review, files, acceptance criteria and validation:
 | `006-sprint-4a-analysis-infrastructure.md` | 4A — analysis infrastructure |
 | `007-sprint-5a-scanner-foundation-trivy.md` | 5A — scanner foundation + Trivy |
 | `008-sprint-5b-repository-acquisition.md` | 5B — repository acquisition & scan execution |
+| `009-sprint-5c1-multi-scanner-orchestration.md` | 5C.1 — multi-scanner orchestration foundation |
 
 ## Sprint roadmap
 
@@ -86,7 +87,7 @@ review, files, acceptance criteria and validation:
 | 4A | Analysis infrastructure — `analysis_runs` history, orchestrator state machine, provider port + fake adapter, run history/timeline UI | ✅ done |
 | 5A | Scanner foundation + Trivy — normalized findings, Trivy adapter, findings API/UI, subprocess safety | ✅ done |
 | 5B | Repository acquisition & scan execution — GitHub clone, workspace lifecycle, token security | ✅ done |
-| 6 | Repository intelligence | planned |
+| 5C.1 | Multi-scanner orchestration — ScannerRun model, provider registry, sequential execution | ✅ done |
 | 6 | Repository intelligence | planned |
 | 7 | Prediction engine | planned |
 | 8 | Dashboard | planned |

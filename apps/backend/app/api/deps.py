@@ -12,6 +12,7 @@ from app.core.config import Settings, get_settings
 from app.core.exceptions import UnauthorizedError
 from app.db.session import session_factory
 from app.domains.analysis.orchestrator import AnalysisOrchestrator
+from app.domains.analysis.ports import AnalysisProvider
 from app.domains.github.service import RepositoryService
 from app.domains.identity.service import IdentityService
 from app.models.user import User
@@ -72,19 +73,31 @@ def get_analysis_orchestrator(
 ) -> AnalysisOrchestrator:
     """Provide a request-scoped analysis orchestrator.
 
-    The orchestrator receives the request session for synchronous work plus a
-    session factory for the background execution task (which outlives the
-    request). The provider comes from settings via the domain factory — the
-    fake today, real scanners later.
-
-    When a real scanner (Trivy) is selected, a token resolver factory is
-    injected so the background task can obtain the user's GitHub access
-    token on demand (Sprint 5B).  The factory returns an async callable
-    because the background task runs inside the event loop.
+    Multi-scanner mode (Sprint 5C.1): when ANALYSIS_SCANNERS is set,
+    builds a list of providers and passes them as scanner_providers.
+    Single-provider mode (backward compatible): uses ANALYSIS_PROVIDER.
     """
     settings = get_settings()
-    provider = _build_provider_with_findings(settings)
 
+    # Multi-scanner mode: ANALYSIS_SCANNERS takes precedence.
+    if settings.analysis_scanners:
+        from app.domains.scanners.registry import build_scanner, parse_scanner_list
+
+        scanner_names = parse_scanner_list(settings.analysis_scanners)
+        providers = [build_scanner(name, settings) for name in scanner_names]
+        providers = [_wrap_provider_with_findings(p, settings) for p in providers]
+        return AnalysisOrchestrator(
+            session=session,
+            session_factory=session_factory,
+            scanner_providers=providers,
+            queued_hold_seconds=settings.analysis_queued_hold_seconds,
+            timeout_seconds=settings.analysis_run_timeout_seconds,
+            scanner_timeout_seconds=settings.scanner_timeout_seconds,
+            token_resolver_factory=_trivy_token_factory,
+        )
+
+    # Single-provider mode (backward compatible).
+    provider = _build_provider_with_findings(settings)
     return AnalysisOrchestrator(
         session=session,
         session_factory=session_factory,
@@ -132,6 +145,30 @@ def _build_provider_with_findings(settings: Settings):
     raise ProviderError(
         f"Unknown analysis provider: {settings.analysis_provider!r}. Available: fake, trivy."
     )
+
+
+def _wrap_provider_with_findings(
+    provider: AnalysisProvider, settings: Settings
+) -> AnalysisProvider:
+    """Wrap a real scanner provider with a findings persistence callback.
+
+    For the Trivy provider, this injects a callback that persists findings.
+    For other providers (future: gitleaks, semgrep), the same pattern applies.
+    """
+    from app.domains.scanners.repository import FindingRepository
+
+    if not hasattr(provider, "_findings_callback"):
+        # Provider does not support findings callback (e.g., fake provider).
+        return provider
+
+    async def _persist_findings(findings):
+        async with session_factory() as s:
+            repo = FindingRepository(s)
+            await repo.create_many(findings)
+            await s.commit()
+
+    provider._findings_callback = _persist_findings  # type: ignore[attr-defined]
+    return provider
 
 
 def _extract_token(

@@ -61,6 +61,8 @@ class AnalysisExecutionContext:
     cancel_event: asyncio.Event
     # Owner of the repository — providers use this for credential resolution.
     owner_id: uuid.UUID = field(default_factory=lambda: uuid.UUID(int=0))
+    # Per-scanner run id — populated when executing through ScannerRun.
+    scanner_run_id: uuid.UUID = field(default_factory=lambda: uuid.UUID(int=0))
     # Async callable that returns the owner's GitHub access token (or other
     # provider token).  Returns None when the user has no connection.
     # Providers must never log or persist the token value.
