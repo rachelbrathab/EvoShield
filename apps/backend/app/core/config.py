@@ -111,6 +111,16 @@ class Settings(BaseSettings):
     # Semgrep rules configuration. "auto" uses the Semgrep registry.
     semgrep_config: str = "auto"
 
+    # ── Syft + Grype (Sprint 5C.4) ───────────────────────────────────
+    # Syft executable path (SBOM generation).
+    syft_executable: str = "syft"
+    # Grype executable path (vulnerability matching against SBOM).
+    grype_executable: str = "grype"
+    # Timeout for SBOM generation with Syft (seconds).
+    syft_timeout_seconds: float = 120.0
+    # Timeout for vulnerability matching with Grype (seconds).
+    grype_timeout_seconds: float = 120.0
+
     # ── Repository Acquisition (Sprint 5B) ────────────────────────────
     # Maximum repository size (MB) to accept for scanning.
     # Repositories larger than this are rejected to prevent resource exhaustion.

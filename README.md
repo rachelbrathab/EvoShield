@@ -76,6 +76,7 @@ review, files, acceptance criteria and validation:
 | `009-sprint-5c1-multi-scanner-orchestration.md` | 5C.1 — multi-scanner orchestration foundation |
 | `010-sprint-5c2-gitleaks.md` | 5C.2 — Gitleaks secret detection |
 | `011-sprint-5c3-semgrep-sast.md` | 5C.3 — Semgrep SAST |
+| `012-sprint-5c4-sbom-grype.md` | 5C.4 — SBOM + Grype dependency intelligence |
 
 ## Sprint roadmap
 
@@ -92,6 +93,7 @@ review, files, acceptance criteria and validation:
 | 5C.1 | Multi-scanner orchestration — ScannerRun model, provider registry, sequential execution | ✅ done |
 | 5C.2 | Gitleaks secret detection — secret scanning, redaction, multi-scanner pipeline | ✅ done |
 | 5C.3 | Semgrep SAST — static analysis, CWE/OWASP metadata, source code safety | ✅ done |
+| 5C.4 | SBOM + Grype — Syft SBOM generation, Grype vulnerability matching | ✅ done |
 | 6 | Repository intelligence | planned |
 | 7 | Prediction engine | planned |
 | 8 | Dashboard | planned |

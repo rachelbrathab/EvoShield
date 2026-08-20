@@ -54,11 +54,23 @@ def _build_semgrep(settings: Settings) -> AnalysisProvider:
     )
 
 
+def _build_grype(settings: Settings) -> AnalysisProvider:
+    from app.domains.scanners.providers.grype.provider import GrypeProvider
+
+    return GrypeProvider(
+        syft_executable=settings.syft_executable,
+        grype_executable=settings.grype_executable,
+        syft_timeout_seconds=settings.syft_timeout_seconds,
+        grype_timeout_seconds=settings.grype_timeout_seconds,
+    )
+
+
 # Registry: scanner_name → factory function
 _REGISTRY: dict[str, BuilderFactory] = {
     "trivy": _build_trivy,
     "gitleaks": _build_gitleaks,
     "semgrep": _build_semgrep,
+    "grype": _build_grype,
 }
 
 

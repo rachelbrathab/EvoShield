@@ -112,10 +112,14 @@ app/domains/scanners/
     │   ├── provider.py         GitleaksProvider — secret detection adapter
     │   ├── runner.py           GitleaksRunner — safe subprocess execution
     │   └── parser.py           GitleaksResultParser — JSON parsing with mandatory secret redaction
-    └── semgrep/
-        ├── provider.py         SemgrepProvider — SAST adapter
-        ├── runner.py           SemgrepRunner — safe subprocess execution
-        └── parser.py           SemgrepResultParser — JSON parsing with mandatory source code safety
+    ├── semgrep/
+    │   ├── provider.py         SemgrepProvider — SAST adapter
+    │   ├── runner.py           SemgrepRunner — safe subprocess execution
+    │   └── parser.py           SemgrepResultParser — JSON parsing with mandatory source code safety
+    └── grype/
+        ├── provider.py         GrypeProvider — SBOM-based vulnerability adapter (Syft → Grype pipeline)
+        ├── runner.py           GrypeRunner — safe Syft + Grype subprocess execution
+        └── parser.py           GrypeResultParser — JSON parsing, safe vulnerability metadata extraction
 ```
 
 Scanners land as sibling adapters under `providers/` — the
