@@ -44,10 +44,21 @@ def _build_gitleaks(settings: Settings) -> AnalysisProvider:
     )
 
 
+def _build_semgrep(settings: Settings) -> AnalysisProvider:
+    from app.domains.scanners.providers.semgrep.provider import SemgrepProvider
+
+    return SemgrepProvider(
+        executable=settings.semgrep_executable,
+        timeout_seconds=settings.semgrep_timeout_seconds,
+        semgrep_config=settings.semgrep_config,
+    )
+
+
 # Registry: scanner_name → factory function
 _REGISTRY: dict[str, BuilderFactory] = {
     "trivy": _build_trivy,
     "gitleaks": _build_gitleaks,
+    "semgrep": _build_semgrep,
 }
 
 

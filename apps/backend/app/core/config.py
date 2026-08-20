@@ -103,6 +103,14 @@ class Settings(BaseSettings):
     # Timeout for a single Gitleaks scan (seconds).
     gitleaks_timeout_seconds: float = 120.0
 
+    # ── Semgrep (Sprint 5C.3) ────────────────────────────────────────
+    # Semgrep executable path (must be in PATH, or an absolute path).
+    semgrep_executable: str = "semgrep"
+    # Timeout for a single Semgrep scan (seconds).
+    semgrep_timeout_seconds: float = 120.0
+    # Semgrep rules configuration. "auto" uses the Semgrep registry.
+    semgrep_config: str = "auto"
+
     # ── Repository Acquisition (Sprint 5B) ────────────────────────────
     # Maximum repository size (MB) to accept for scanning.
     # Repositories larger than this are rejected to prevent resource exhaustion.
