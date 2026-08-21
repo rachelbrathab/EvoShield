@@ -77,6 +77,7 @@ review, files, acceptance criteria and validation:
 | `010-sprint-5c2-gitleaks.md` | 5C.2 — Gitleaks secret detection |
 | `011-sprint-5c3-semgrep-sast.md` | 5C.3 — Semgrep SAST |
 | `012-sprint-5c4-sbom-grype.md` | 5C.4 — SBOM + Grype dependency intelligence |
+| `013-sprint-6-repository-intelligence.md` | 6 — Repository intelligence |
 
 ## Sprint roadmap
 
@@ -94,7 +95,8 @@ review, files, acceptance criteria and validation:
 | 5C.2 | Gitleaks secret detection — secret scanning, redaction, multi-scanner pipeline | ✅ done |
 | 5C.3 | Semgrep SAST — static analysis, CWE/OWASP metadata, source code safety | ✅ done |
 | 5C.4 | SBOM + Grype — Syft SBOM generation, Grype vulnerability matching | ✅ done |
-| 6 | Repository intelligence | planned |
+| 6 | Repository intelligence — risk scoring, aggregation, prioritization, trends | ✅ done |
+| 7 | Prediction engine | planned |
 | 7 | Prediction engine | planned |
 | 8 | Dashboard | planned |
 | 9 | Reports | planned |

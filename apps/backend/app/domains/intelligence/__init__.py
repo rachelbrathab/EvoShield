@@ -1,10 +1,18 @@
-"""Repository intelligence domain (Sprint 6+).
+"""Repository Intelligence domain — aggregates scanner evidence into actionable insight.
 
-Owns temporal repository intelligence: how risk drifts over time, trend
-features, and the historical dataset the prediction engine trains on.
+This domain answers: "How secure is this repository?"
 
-Dependency rule: consumes scanner findings over time; produces feature
-vectors consumed by the prediction domain. Named `intelligence` (not
-`repository_intelligence`) to avoid collision with the data-access
-`repositories/` layer.
+It consumes evidence from the scanner layer (Trivy, Gitleaks, Semgrep, Grype)
+and produces deterministic, explainable repository intelligence:
+
+- Finding aggregation (by severity, type, scanner)
+- Risk scoring (transparent engineering heuristic, NOT a validated security standard)
+- Risk factors (categorized explanations)
+- Finding prioritization (what to fix first)
+- Conservative deduplication (same CVE/package grouping)
+- Trend analysis (improving / worsening / unchanged)
+- Scanner coverage (which scanners succeeded/failed)
+
+All computation is deterministic, bounded, and testable.
+No LLM, no machine learning, no external services.
 """
