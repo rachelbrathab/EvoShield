@@ -30,6 +30,7 @@ import { AnalysisRunStatusBadge } from "@/components/analysis/analysis-run-statu
 import { AnalysisTimeline } from "@/components/analysis/analysis-timeline";
 import { FindingsSection } from "@/components/analysis/findings-section";
 import { IntelligenceSection } from "@/components/analysis/intelligence-section";
+import { RemediationSection } from "@/components/analysis/remediation-section";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -312,6 +313,12 @@ export default function AnalysisDetailPage() {
 
       {/* Repository Intelligence (Sprint 6) */}
       <IntelligenceSection
+        analysisRunId={run.id}
+        isRunActive={isRunActive(run.status)}
+      />
+
+      {/* Remediation Intelligence (Sprint 7) */}
+      <RemediationSection
         analysisRunId={run.id}
         isRunActive={isRunActive(run.status)}
       />

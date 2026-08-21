@@ -14,6 +14,7 @@ from app.core.exceptions import NotFoundError
 from app.domains.intelligence.schemas import (
     FindingTypeCounts,
     PriorityFinding,
+    RemediationMetrics,
     RepositoryIntelligence,
     RiskFactor,
     ScannerCounts,
@@ -79,6 +80,7 @@ class IntelligenceService:
         trend = self._compute_trend(findings, previous_findings, previous_run)
         coverage = self._compute_scanner_coverage(scanner_runs)
         summary = self._generate_summary(risk_level, len(findings), sev_raw, coverage)
+        remediation = await self._compute_remediation_metrics(findings, analysis_id)
 
         return RepositoryIntelligence(
             repository_id=str(repository.id),
@@ -93,9 +95,67 @@ class IntelligenceService:
             scanner_counts=scanner_counts,
             risk_factors=risk_factors,
             top_findings=top_findings,
+            remediation_metrics=remediation,
             trend=trend,
             scanner_coverage=coverage,
             summary=summary,
+        )
+
+    # ── Remediation metrics ─────────────────────────────────────────────
+
+    async def _compute_remediation_metrics(
+        self, findings: list[Finding], analysis_id: uuid.UUID
+    ) -> RemediationMetrics:
+        """Compute remediation metrics from finding statuses."""
+        from app.domains.remediation.enums import FindingStatus, FixAvailability
+        from app.domains.remediation.guidance import assess_fix_availability
+        from app.domains.remediation.repository import FindingStatusRepository
+
+        status_repo = FindingStatusRepository(self._session)
+        status_map = await status_repo.list_status_for_analysis(analysis_id)
+
+        open_count = 0
+        acknowledged_count = 0
+        resolved_count = 0
+        fp_count = 0
+        fixable_count = 0
+
+        for f in findings:
+            status_record = status_map.get(f.id)
+            status_val = (
+                status_record.status.value  # type: ignore[union-attr]
+                if status_record is not None
+                else FindingStatus.OPEN.value
+            )
+            if status_val == FindingStatus.OPEN.value:
+                open_count += 1
+            elif status_val == FindingStatus.ACKNOWLEDGED.value:
+                acknowledged_count += 1
+            elif status_val == FindingStatus.RESOLVED.value:
+                resolved_count += 1
+            elif status_val == FindingStatus.FALSE_POSITIVE.value:
+                fp_count += 1
+
+            fix = assess_fix_availability(
+                finding_type=_enum_val(f.finding_type),
+                fixed_version=f.fixed_version,
+                vulnerability_id=f.vulnerability_id,
+                installed_version=f.installed_version,
+            )
+            if fix == FixAvailability.FIX_AVAILABLE:
+                fixable_count += 1
+
+        total = len(findings)
+        resolved_or_fp = resolved_count + fp_count
+        rate = (resolved_or_fp / total * 100.0) if total > 0 else 0.0
+
+        return RemediationMetrics(
+            open_count=open_count,
+            acknowledged_count=acknowledged_count,
+            resolved_count=resolved_count,
+            false_positive_count=fp_count,
+            fixable_count=fixable_count,
+            remediation_rate=round(rate, 1),
         )
 
     # ── Data loading ────────────────────────────────────────────────────

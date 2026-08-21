@@ -78,6 +78,7 @@ review, files, acceptance criteria and validation:
 | `011-sprint-5c3-semgrep-sast.md` | 5C.3 — Semgrep SAST |
 | `012-sprint-5c4-sbom-grype.md` | 5C.4 — SBOM + Grype dependency intelligence |
 | `013-sprint-6-repository-intelligence.md` | 6 — Repository intelligence |
+| `014-sprint-7-remediation-intelligence.md` | 7 — Remediation intelligence |
 
 ## Sprint roadmap
 
@@ -96,7 +97,8 @@ review, files, acceptance criteria and validation:
 | 5C.3 | Semgrep SAST — static analysis, CWE/OWASP metadata, source code safety | ✅ done |
 | 5C.4 | SBOM + Grype — Syft SBOM generation, Grype vulnerability matching | ✅ done |
 | 6 | Repository intelligence — risk scoring, aggregation, prioritization, trends | ✅ done |
-| 7 | Prediction engine | planned |
+| 7 | Remediation intelligence — finding lifecycle, guidance, fix availability, prioritization | ✅ done |
+| 8 | Prediction engine | planned |
 | 7 | Prediction engine | planned |
 | 8 | Dashboard | planned |
 | 9 | Reports | planned |

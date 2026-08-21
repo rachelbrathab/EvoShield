@@ -108,6 +108,19 @@ class ScannerDetail(BaseModel):
 ScannerCoverage.model_rebuild()
 
 
+class RemediationMetrics(BaseModel):
+    """Remediation metrics integrated into intelligence response."""
+
+    open_count: int = Field(description="Findings in OPEN status")
+    acknowledged_count: int = Field(description="Findings in ACKNOWLEDGED status")
+    resolved_count: int = Field(description="Findings in RESOLVED status")
+    false_positive_count: int = Field(description="Findings marked as FALSE_POSITIVE")
+    fixable_count: int = Field(description="Findings with a known fix available")
+    remediation_rate: float = Field(
+        description="Percentage of findings resolved or false positive [0-100]"
+    )
+
+
 class RepositoryIntelligence(BaseModel):
     """Complete repository intelligence response.
 
@@ -137,6 +150,9 @@ class RepositoryIntelligence(BaseModel):
     top_findings: list[PriorityFinding] = Field(
         description="Prioritized findings to investigate first"
     )
+
+    # Remediation metrics (Sprint 7)
+    remediation_metrics: RemediationMetrics = Field(description="Remediation status and progress")
 
     # Trend
     trend: TrendInfo = Field(description="Comparison with previous analysis")

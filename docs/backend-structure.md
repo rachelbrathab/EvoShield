@@ -19,8 +19,8 @@ apps/backend/
 │   │   ├── analysis/         Analysis infrastructure (Sprint 4A ✅) — orchestrator, provider port, fake provider
 │   │   ├── scanners/         Scanner engine: Trivy/Syft/Grype/Semgrep/Gitleaks (Sprint 5A/5B) — including GitHubRepositorySource for repo acquisition
 │   │   ├── intelligence/     Repository intelligence — risk scoring, aggregation, prioritization (Sprint 6 ✅)
-│   │   ├── prediction/       Future-risk engine (Sprint 7)
-│   │   ├── recommendation/   Remediation guidance (Sprint 8)
+│   │   ├── remediation/      Finding lifecycle, remediation guidance, fix availability (Sprint 7 ✅)
+│   │   ├── prediction/       Future-risk engine (Sprint 8)
 │   │   ├── reports/          Report generation (Sprint 9)
 │   │   └── chat/             AI security assistant (Sprint 10)
 │   ├── models/               SQLAlchemy ORM models (single schema source); Repository + AnalysisStatus (Sprint 3 prep)
@@ -49,7 +49,7 @@ apps/backend/
 | `domains/` | Business logic per domain. | **The key change**: replaces the generic `services/` bucket. Each domain owns its logic + schemas, so unrelated code never mixes. |
 | `domains/identity/` | Register/login/logout, JWT sessions, GitHub OAuth, user profiles. | Auth is its own bounded context: providers (local + Supabase) sit behind a port, so swapping identity backends never touches other domains (ADR 0005). |
 | `domains/analysis/` | Run lifecycle orchestration — `AnalysisRun` state machine, `AnalysisProvider` port, fake provider, factory, owner-scoped data access, API contracts. | The "operating system" for the analysis engine: scanners plug in as provider adapters, so adding Trivy/Syft/etc. never touches the API, DB or UI (ADR 0008). |
-| `models/` | ORM entities — `User`, `AuthCredential`, `ProviderToken`, `Repository` (with its `AnalysisStatus` lifecycle enum + GitHub metadata), `AnalysisRun` (run history, Sprint 4A), `ScannerRun` (per-scanner execution tracking, Sprint 5C.1), and `Finding` (normalized security findings, Sprint 5A). | Single source of truth for schema (Alembic autogenerate). `Repository` carries the analysis-status trio plus provider metadata (Sprint 3A); `ProviderToken` stores per-user upstream access tokens; `AnalysisRun` records per-run history; `ScannerRun` tracks individual scanner execution within an analysis; `Finding` stores normalized vulnerability/secret/SAST results. |
+| `models/` | ORM entities — `User`, `AuthCredential`, `ProviderToken`, `Repository` (with its `AnalysisStatus` lifecycle enum + GitHub metadata), `AnalysisRun` (run history, Sprint 4A), `ScannerRun` (per-scanner execution tracking, Sprint 5C.1), `Finding` (normalized security findings, Sprint 5A), and `FindingStatusRecord` (mutable finding lifecycle, Sprint 7). | Single source of truth for schema (Alembic autogenerate). `Repository` carries the analysis-status trio plus provider metadata (Sprint 3A); `ProviderToken` stores per-user upstream access tokens; `AnalysisRun` records per-run history; `ScannerRun` tracks individual scanner execution within an analysis; `Finding` stores normalized vulnerability/secret/SAST results. |
 | `repositories/` | Query surface. | Repos isolate SQL from business logic; domain-owned when a domain has private aggregates. `provider_token.py` is shared because both `identity` (write) and `github` (read) touch the table. |
 | `schemas/` | Shared contracts only. | Domain-specific schemas live in the domain; this folder holds cross-domain DTOs. |
 | `workers/` | Background pipelines. | Scan orchestration etc. must not block the request path. |
@@ -128,5 +128,23 @@ orchestrator, repository and API stay untouched (see `docs/adr/0008-analysis-dom
 The scanner registry (Sprint 5C.1) makes adding new scanners a
 registration-only change: implement the provider, register in `_REGISTRY`,
 add to `ANALYSIS_SCANNERS`.  No orchestrator or API modifications needed.
+
+## Remediation domain layout (Sprint 7)
+
+```
+app/domains/remediation/
+├── __init__.py      Domain package
+├── enums.py         FindingStatus (OPEN/ACKNOWLEDGED/RESOLVED/FALSE_POSITIVE), FixAvailability
+├── guidance.py      Deterministic rule-based remediation guidance per finding type
+├── repository.py    FindingStatusRepository — owner-scoped status queries
+├── schemas.py       API response contracts (AnalysisRemediation, FindingRemediation, etc.)
+└── service.py       RemediationService — lifecycle, guidance, prioritization, summary
+```
+
+The remediation domain operates on normalized Finding data without modifying
+scanner internals. FindingStatus is a separate table — the Finding model
+remains immutable (scanner-produced data).
+
+See `docs/adr/0016-remediation-intelligence.md` for the architecture decision.
 
 See `docs/module-dependency.md` for the diagram.
