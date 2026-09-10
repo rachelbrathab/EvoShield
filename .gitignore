@@ -33,6 +33,7 @@ build/
 .env
 .env.*
 !.env.example
+!.env.compose.example
 !.env.local.example
 
 # ── Local databases ───────────────────────────────────────────────────

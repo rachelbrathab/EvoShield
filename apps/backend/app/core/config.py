@@ -90,6 +90,11 @@ class Settings(BaseSettings):
     analysis_run_timeout_seconds: float = 120.0
     # Per-scanner timeout (Sprint 5C.1).
     scanner_timeout_seconds: float = 300.0
+    # Mark stranded active runs (queued/running) as failed at startup
+    # (Sprint 8): in-process run tasks die with the process. Safe for the
+    # single-process deployment this project targets; disable only when a
+    # dedicated one-off entrypoint owns recovery instead.
+    reaper_enabled: bool = True
 
     # ── Trivy (Sprint 5A) ─────────────────────────────────────────────
     # Trivy executable path (must be in PATH, or an absolute path).

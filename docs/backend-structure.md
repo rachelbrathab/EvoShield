@@ -16,13 +16,10 @@ apps/backend/
 │   │   ├── identity/         Authentication + user profiles (Sprint 2 ✅)
 │   │   ├── health/           Liveness + dependency probes (reference impl.)
 │   │   ├── github/           GitHub integration (Sprint 3A ✅) — client, service, repository, contracts
-│   │   ├── analysis/         Analysis infrastructure (Sprint 4A ✅) — orchestrator, provider port, fake provider
-│   │   ├── scanners/         Scanner engine: Trivy/Syft/Grype/Semgrep/Gitleaks (Sprint 5A/5B) — including GitHubRepositorySource for repo acquisition
+│   │   ├── analysis/         Analysis infrastructure (Sprint 4A ✅) — orchestrator, provider port, fake provider; startup reaper + ops CLI (Sprint 8 ✅)
+│   │   ├── scanners/         Scanner engine: Trivy/Gitleaks/Semgrep/Grype+Syft (Sprint 5–5C.4 ✅) — including GitHubRepositorySource for repo acquisition
 │   │   ├── intelligence/     Repository intelligence — risk scoring, aggregation, prioritization (Sprint 6 ✅)
 │   │   ├── remediation/      Finding lifecycle, remediation guidance, fix availability (Sprint 7 ✅)
-│   │   ├── prediction/       Future-risk engine (Sprint 8)
-│   │   ├── reports/          Report generation (Sprint 9)
-│   │   └── chat/             AI security assistant (Sprint 10)
 │   ├── models/               SQLAlchemy ORM models (single schema source); Repository + AnalysisStatus (Sprint 3 prep)
 │   ├── repositories/         Shared data-access surface (per-domain when needed)
 │   ├── schemas/              Shared Pydantic contracts across domains
@@ -34,7 +31,7 @@ apps/backend/
 │   │   └── domains/          Per-domain unit tests (mirrors app/domains/)
 │   ├── integration/          Real FastAPI stack + live test database
 │   └── e2e/                  Full-stack scenarios (Sprint 13)
-├── Dockerfile                uv multi-stage, non-root, healthcheck
+├── Dockerfile                uv multi-stage, non-root, healthcheck; ships git + pinned scanner toolchain (Sprint 8)
 ├── pyproject.toml            Dependencies + ruff/pyright/pytest config
 └── uv.lock                   Locked dependency graph
 ```
@@ -48,7 +45,7 @@ apps/backend/
 | `db/` | Async engine + session factory. | One engine per process; sessions request-scoped via DI. |
 | `domains/` | Business logic per domain. | **The key change**: replaces the generic `services/` bucket. Each domain owns its logic + schemas, so unrelated code never mixes. |
 | `domains/identity/` | Register/login/logout, JWT sessions, GitHub OAuth, user profiles. | Auth is its own bounded context: providers (local + Supabase) sit behind a port, so swapping identity backends never touches other domains (ADR 0005). |
-| `domains/analysis/` | Run lifecycle orchestration — `AnalysisRun` state machine, `AnalysisProvider` port, fake provider, factory, owner-scoped data access, API contracts. | The "operating system" for the analysis engine: scanners plug in as provider adapters, so adding Trivy/Syft/etc. never touches the API, DB or UI (ADR 0008). |
+| `domains/analysis/` | Run lifecycle orchestration — `AnalysisRun` state machine, `AnalysisProvider` port, fake provider, factory, owner-scoped data access, API contracts, plus the Sprint 8 startup reaper (`reaper.py`) and ops CLI (`app/cli.py`). | The "operating system" for the analysis engine: scanners plug in as provider adapters, so adding Trivy/Syft/etc. never touches the API, DB or UI (ADR 0008). The reaper fails stranded active runs at restart so the single-active-run guard cannot deadlock a repository (ADR 0017). |
 | `models/` | ORM entities — `User`, `AuthCredential`, `ProviderToken`, `Repository` (with its `AnalysisStatus` lifecycle enum + GitHub metadata), `AnalysisRun` (run history, Sprint 4A), `ScannerRun` (per-scanner execution tracking, Sprint 5C.1), `Finding` (normalized security findings, Sprint 5A), and `FindingStatusRecord` (mutable finding lifecycle, Sprint 7). | Single source of truth for schema (Alembic autogenerate). `Repository` carries the analysis-status trio plus provider metadata (Sprint 3A); `ProviderToken` stores per-user upstream access tokens; `AnalysisRun` records per-run history; `ScannerRun` tracks individual scanner execution within an analysis; `Finding` stores normalized vulnerability/secret/SAST results. |
 | `repositories/` | Query surface. | Repos isolate SQL from business logic; domain-owned when a domain has private aggregates. `provider_token.py` is shared because both `identity` (write) and `github` (read) touch the table. |
 | `schemas/` | Shared contracts only. | Domain-specific schemas live in the domain; this folder holds cross-domain DTOs. |

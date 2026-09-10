@@ -1,10 +1,12 @@
 # EvoShield 🔬🛡️
 
-**Predictive Software Supply Chain Risk Assessment Using Temporal Repository Intelligence**
+**Unified Repository Security Intelligence & Remediation**
 
-EvoShield is a DevSecOps SaaS platform that connects GitHub repositories, runs
-industry-grade supply chain security scans, tracks risk over time, and predicts
-where risk is heading — so developers can remediate before attackers exploit it.
+EvoShield is a DevSecOps platform that connects GitHub repositories, runs
+industry-grade security scanners (Trivy, Gitleaks, Semgrep, Grype/Syft),
+normalizes their output into a unified finding model, and turns that into
+deterministic risk intelligence, prioritization and remediation guidance —
+so developers can fix what matters before attackers exploit it.
 
 > Final year engineering project. Built one sprint at a time, like a real
 > software company: plan → approve → implement → verify.
@@ -27,13 +29,12 @@ evoshield/
 
 | Layer | Choice |
 | --- | --- |
-| Frontend | Next.js, React, TypeScript, Tailwind CSS, shadcn/ui, Recharts (Sprint 8) |
+| Frontend | Next.js, React, TypeScript, Tailwind CSS, shadcn/ui |
 | Backend | FastAPI, Python 3.12 (uv-managed), async SQLAlchemy |
 | Database | Supabase PostgreSQL (prod) / SQLite (local dev fallback) |
 | Auth | Identity domain — Supabase Auth (prod) + local provider (dev) |
-| Security tools | Trivy · Syft · Grype · Semgrep · Gitleaks (Sprint 5) |
-| Prediction | pandas · NumPy · scikit-learn (Sprint 7) |
-| Deployment | Render |
+| Security tools | Trivy · Syft · Grype · Semgrep · Gitleaks (Sprint 5–5C.4) |
+| Deployment | Docker Compose — app + frontend + PostgreSQL (Supabase target) |
 
 See [docs/architecture.md](docs/architecture.md) for the full picture,
 `docs/sprint-plans/` for the roadmap, and
@@ -47,6 +48,10 @@ npm run setup         # installs frontend deps + syncs backend env + migrates
 npm run dev           # runs frontend (:3000) and backend (:8000) concurrently
 ```
 
+For a guided end-to-end walkthrough (Docker Compose, registering a user,
+importing a repository, scanning, intelligence and remediation), see
+[docs/demo.md](docs/demo.md).```
+
 Then open:
 
 - App:       http://localhost:3000
@@ -55,6 +60,20 @@ Then open:
 
 Per-service instructions live in `apps/frontend/README.md` and
 `apps/backend/README.md`.
+
+### Docker (full stack)
+
+The backend image ships the complete scanner toolchain (Trivy, Gitleaks,
+Semgrep, Grype/Syft) and git — no local installs required:
+
+```bash
+cp .env.compose.example .env.compose   # fill in SESSION_JWT_SECRET (+ GitHub OAuth for real scans)
+docker compose --env-file .env.compose up --build
+```
+
+The compose stack runs PostgreSQL, applies migrations, performs stranded-run
+recovery, then starts the API and frontend. Restarting the backend
+auto-recovers interrupted analyses (marked failed, re-startable).
 
 Frontend tests (Vitest + React Testing Library): `cd apps/frontend && npm test`.
 
@@ -79,6 +98,8 @@ review, files, acceptance criteria and validation:
 | `012-sprint-5c4-sbom-grype.md` | 5C.4 — SBOM + Grype dependency intelligence |
 | `013-sprint-6-repository-intelligence.md` | 6 — Repository intelligence |
 | `014-sprint-7-remediation-intelligence.md` | 7 — Remediation intelligence |
+| `015-sprint-8-deployment-realism.md` | 8 — Deployment realism & cleanup |
+| `016-sprint-9-final-hardening.md` | 9 — Final hardening, docs & demo |
 
 ## Sprint roadmap
 
@@ -98,15 +119,13 @@ review, files, acceptance criteria and validation:
 | 5C.4 | SBOM + Grype — Syft SBOM generation, Grype vulnerability matching | ✅ done |
 | 6 | Repository intelligence — risk scoring, aggregation, prioritization, trends | ✅ done |
 | 7 | Remediation intelligence — finding lifecycle, guidance, fix availability, prioritization | ✅ done |
-| 8 | Prediction engine | planned |
-| 7 | Prediction engine | planned |
-| 8 | Dashboard | planned |
-| 9 | Reports | planned |
-| 10 | AI security assistant | planned |
-| 11 | Renovate integration | planned |
-| 12 | Optimization | planned |
-| 13 | Testing & hardening | planned |
-| 14 | Deployment (Render) | planned |
+| 8 | Deployment realism & cleanup — scanner-bundled backend image, frontend container, compose stack, restart recovery, dead-code removal | ✅ done |
+| 9 | Final hardening, docs & demo — docs sync, demo guide, completion checklist, CI image builds | ✅ done |
+
+**EvoShield is feature-complete as of Sprint 9.** See
+[docs/demo.md](docs/demo.md) for a runnable end-to-end demonstration and
+[docs/final-completion-checklist.md](docs/final-completion-checklist.md) for
+the objective completion criteria.
 
 ## Development principles
 

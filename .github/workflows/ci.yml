@@ -118,3 +118,32 @@ jobs:
 
       - name: Production build
         run: npm run build
+
+  docker-images:
+    # Sprint 9: verify the production images actually build — the compose
+    # stack is the primary deployment/demo artifact. Build-only: no push.
+    name: Docker images (backend + frontend build)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build backend image
+        uses: docker/build-push-action@v6
+        with:
+          context: apps/backend
+          push: false
+          load: false
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Build frontend image
+        uses: docker/build-push-action@v6
+        with:
+          context: apps/frontend
+          push: false
+          load: false
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

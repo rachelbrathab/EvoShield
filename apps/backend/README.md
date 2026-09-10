@@ -11,9 +11,8 @@ app/
 ├── core/         Cross-cutting: config, logging, exceptions, security
 ├── db/           Engine + session factory (SQLAlchemy async)
 ├── domains/      Business logic per domain (identity, health, github,
-│                 analysis, scanners, intelligence, prediction,
-│                 recommendation, reports, chat) — each owns
-│                 service.py + schemas.py (+ ports.py where external)
+│                 analysis, scanners, intelligence, remediation) — each
+│                 owns service.py + schemas.py (+ ports.py where external)
 ├── models/       ORM models (SQLAlchemy 2.0)
 ├── repositories/ Data access per aggregate
 ├── schemas/      Shared Pydantic contracts (cross-domain DTOs)
@@ -43,6 +42,20 @@ uv run uvicorn app.main:app --reload --port 8000
 - API docs: http://localhost:8000/docs
 - Health:    http://localhost:8000/api/v1/health
 - Auth:      http://localhost:8000/api/v1/auth/register|login|logout|me
+
+## Docker & operations (Sprint 8)
+
+The image ships the pinned scanner toolchain (Trivy 0.74.0, Gitleaks 8.30.1,
+Semgrep 1.176.1, Syft 1.51.1, Grype 0.118.0) and git — see the Dockerfile
+for how to bump a version safely.
+
+Restart recovery: runs interrupted by a server restart are marked failed at
+startup (lifespan hook, disable with `REAPER_ENABLED=false`). For
+multi-worker deployments run recovery once instead:
+
+```bash
+python -m app.cli recover-runs
+```
 
 ## Authentication (Sprint 2)
 

@@ -20,21 +20,15 @@ document describes what each owns, what it consumes, and when it ships.
 | `health` | 1 ✅ | Liveness + dependency probes | Database | Health payload |
 | `github` | 3A ✅ | GitHub OAuth (via identity), REST API client, repository import/sync/query, GitHub repo browser, repository contract (`RepositoryRead`) | GitHub API (external, behind `GitHubRepoProvider` port) | Normalized repository data |
 | `analysis` | 4A ✅ | Run lifecycle orchestration — `AnalysisRun` history, `AnalysisProvider` port, state machine, timeout/cancellation | Repository rows + injected provider (behind port) | Completed/failed run records; repository `analysis_status` transitions |
-| `scanners` | 5 | Trivy/Syft/Grype/Semgrep/Gitleaks execution, finding normalization | Analysis artifacts | Unified `Finding` model |
-| `intelligence` | 6 | Temporal risk tracking, trend features | Findings over time | Feature vectors |
-| `prediction` | 7 | scikit-learn models, 90-day forecasts | Intelligence features | Risk scores + confidence |
-| `recommendation` | 8 | Remediation guidance | Findings + predictions | Prioritized recommendations |
-| `reports` | 9 | Report generation/export | All domains (via orchestration) | PDF/HTML/CSV |
-| `chat` | 10 | AI assistant, grounding | Findings/predictions/recommendations | Conversational answers |
+| `scanners` | 5–5C.4 ✅ | Trivy/Syft/Grype/Semgrep/Gitleaks execution, finding normalization | Analysis artifacts | Unified `Finding` model |
+| `intelligence` | 6 ✅ | Deterministic risk scoring, aggregation, prioritization, trend, scanner coverage | Findings + scanner runs | Repository intelligence payload |
+| `remediation` | 7 ✅ | Finding status lifecycle, deterministic guidance, fix availability, remediation priority | Findings + user status updates | Remediation intelligence payload |
+| `analysis` reaper | 8 ✅ | Stranded-run recovery at startup (`reaper.py`, `app/cli.py`) | Active analysis runs | Failed runs with explanatory reason |
 
 ## Data flow (pipeline)
 
 ```
-GitHub ──▶ Analysis ──▶ Scanners ──▶ Intelligence ──▶ Prediction
-                                    │                    │
-                                    └────────▶ Recommendation ──▶ Reports
-                                                          │
-                                                          └──▶ Chat
+GitHub ──▶ Analysis ──▶ Scanners ──▶ Intelligence ──▶ Remediation ──▶ Security posture
 ```
 
 ## Per-domain detail
@@ -102,11 +96,11 @@ Scanner binaries are external infrastructure. The domain defines a
 `Scanner` port; each tool (Trivy, Syft, …) is an adapter. Findings are
 normalized into one `Finding` schema so downstream domains are tool-agnostic.
 
-### prediction (Sprint 7)
-Owns the model lifecycle: feature engineering, training, evaluation and
-inference. Predictions include confidence intervals and feature attribution.
-
-### chat (Sprint 10)
-The AI assistant is a consumer, not a controller — it reads
-findings/predictions/recommendations through the orchestration layer, never
-bypassing the domains' own contracts.
+### analysis reaper (Sprint 8 ✅)
+Analysis runs execute in in-process asyncio tasks, so a server restart
+orphans any run whose task died. `reaper.py` closes that hole: every
+queued/running run is transitioned to FAILED with an explanatory reason at
+startup (lifespan hook) or via `python -m app.cli recover-runs` (one-off
+container command for multi-worker deployments). Terminal runs are never
+touched, and recovery is deliberately not auto-re-queueing — scans need
+fresh acquisition and operator intent. See `docs/adr/0017-deployment-realism.md`.

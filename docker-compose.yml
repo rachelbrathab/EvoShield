@@ -1,0 +1,98 @@
+# EvoShield — one-command demo/production stack (Sprint 8).
+#
+#   cp .env.compose.example .env.compose   # then fill in real values
+#   docker compose --env-file .env.compose up --build
+#
+# Services:
+#   db       PostgreSQL 16 (Supabase-compatible target; swap the URL for a
+#            Supabase pooler in production)
+#   migrate  one-off: alembic upgrade head + stranded-run recovery
+#   backend  FastAPI + the full scanner toolchain (Trivy, Gitleaks, Semgrep,
+#            Grype/Syft) — see apps/backend/Dockerfile
+#   frontend Next.js standalone build proxying to the backend
+#
+# Scanner database caches (Trivy/Grype) are kept in named volumes so repeated
+# scans do not re-download the advisory DBs.
+
+name: evoshield
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-evoshield}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-evoshield}
+      POSTGRES_DB: ${POSTGRES_DB:-evoshield}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-evoshield} -d ${POSTGRES_DB:-evoshield}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  migrate:
+    build:
+      context: ./apps/backend
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-evoshield}:${POSTGRES_PASSWORD:-evoshield}@db:5432/${POSTGRES_DB:-evoshield}
+    entrypoint: ["/bin/sh", "-c"]
+    command: >
+      "alembic upgrade head && python -m app.cli recover-runs"
+    restart: "no"
+
+  backend:
+    build:
+      context: ./apps/backend
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-evoshield}:${POSTGRES_PASSWORD:-evoshield}@db:5432/${POSTGRES_DB:-evoshield}
+      ENVIRONMENT: ${ENVIRONMENT:-production}
+      ALLOWED_HOSTS: '["backend","localhost","127.0.0.1"]'
+      CORS_ORIGINS: '["${FRONTEND_PUBLIC_URL:-http://localhost:3000}"]'
+      FRONTEND_URL: ${FRONTEND_PUBLIC_URL:-http://localhost:3000}
+      SESSION_JWT_SECRET: ${SESSION_JWT_SECRET:?Set SESSION_JWT_SECRET in .env.compose (32+ bytes)}
+      SESSION_COOKIE_SECURE: ${SESSION_COOKIE_SECURE:-false}
+      GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID:-}
+      GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET:-}
+      GITHUB_REDIRECT_URI: ${GITHUB_REDIRECT_URI:-}
+      ANALYSIS_SCANNERS: ${ANALYSIS_SCANNERS:-trivy,gitleaks,semgrep,grype}
+      TRIVY_EXECUTABLE: trivy
+      GITLEAKS_EXECUTABLE: gitleaks
+      SEMGREP_EXECUTABLE: semgrep
+      SYFT_EXECUTABLE: syft
+      GRYPE_EXECUTABLE: grype
+      XDG_CACHE_HOME: /tmp/scanner-cache
+    volumes:
+      - scanner-cache:/tmp/scanner-cache
+      # Writable workspace for repository clones inside the non-root container.
+      - scan-workspace:/tmp/evoshield-scans
+    ports:
+      - "${BACKEND_PORT:-8000}:8000"
+
+  frontend:
+    build:
+      context: ./apps/frontend
+      args:
+        # Baked into the client bundle at build time (see Dockerfile note).
+        NEXT_PUBLIC_API_URL: ${BACKEND_PUBLIC_URL:-http://localhost:8000}
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_started
+    ports:
+      - "${FRONTEND_PORT:-3000}:3000"
+
+volumes:
+  pgdata:
+  scanner-cache:
+  scan-workspace:

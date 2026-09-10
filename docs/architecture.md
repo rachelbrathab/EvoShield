@@ -25,10 +25,10 @@ sprint in the sprint-plan documents.
 apps/frontend   Next.js App Router SPA+SSR. Server components by default;
                 "use client" only where interactivity requires it.
 apps/backend    FastAPI service. Owns all business logic and data.
-packages/       Shared code (typed API contracts, future SDKs).
+packages/       Reserved for shared code (typed API contracts, future SDKs).
 docs/           Architecture, sprint plans, ADRs (decision records).
 scripts/        Root-level developer tooling.
-.github/        CI (lint, typecheck, tests, build) on push + PR.
+.github/        CI (lint, typecheck, tests, build, image builds) on push + PR.
 ```
 
 **Why a monorepo?** One review surface, atomic cross-cutting changes, a single
@@ -42,10 +42,10 @@ Layered, dependency-inverted. HTTP knows nothing about storage.
 ```
 HTTP layer      app/api/            routers + deps (FastAPI)
     ↓
-Orchestration   app/workers/        cross-domain pipelines (off request path)
-    ↓
 Domains         app/domains/*/      one package per business domain
-                                    (service.py + schemas.py + ports.py)
+                                    (service.py + schemas.py + ports.py);
+                                    analysis orchestration lives in
+                                    domains/analysis (orchestrator.py)
     ↓
 Repository      app/repositories/   data access per aggregate
     ↓
@@ -56,8 +56,10 @@ Cross-cutting:
 
 - `app/core/` — config (pydantic-settings), logging, exception taxonomy, security.
 - `app/domains/` — **business logic per domain** (identity, health, github,
-  analysis, scanners, intelligence, prediction, recommendation, reports,
-  chat). Domains never import each other; orchestration lives in `workers/`.
+  analysis, scanners, intelligence, remediation). Domains never import each
+  other; cross-domain composition happens in the analysis orchestrator
+  (`domains/analysis/orchestrator.py`) and API composition roots. The
+  `app/workers/` package is reserved for future out-of-process job execution.
 - `app/schemas/` — shared Pydantic contracts; domain-specific schemas live in
   their domain.
 - `app/db/` — async engine + session factory.
@@ -69,9 +71,10 @@ diagram.
 
 **Rules**
 
-- Routers only parse/validate and call one domain (or the orchestration layer);
+- Routers only parse/validate and call one domain (or the composition root);
   no business logic.
-- Domains never import sibling domains — composition happens in `workers/`.
+- Domains never import sibling domains — composition happens in the analysis
+  orchestrator and API composition roots.
 - Domains depend on ports, not tools: scanner binaries, GitHub API, LLM vendors
   are adapters injected behind domain interfaces.
 - Models never leak into schemas; explicit mappers live in repositories.
@@ -184,9 +187,19 @@ diagram.
   "operating system" Sprint 5 scanners plug into (see
   `docs/adr/0008-analysis-domain.md`).
 - Sprint 4B: real analysis capabilities on top of the orchestration layer.
-- Sprint 5: scanner orchestration in `domains/scanners/`, run as background
-  jobs from `app/workers/`. Pipelines report progress by transitioning
-  `Repository.analysis_status` (already migrated) and write findings to their
-  own tables.
-- Sprint 7: `domains/prediction/` with pandas/NumPy/scikit-learn, feature store
-  fed from repository intelligence tables.
+- Sprint 5 ✅–5C.4 ✅: scanner orchestration in `domains/scanners/` —
+  Trivy, Gitleaks, Semgrep and the Syft→Grype pipeline run as sequential
+  scanner runs dispatched by the analysis orchestrator, with per-scanner
+  `scanner_runs` rows, failure isolation and normalized findings (see
+  `docs/adr/0009`–`0014`).
+- Sprint 6 ✅: repository intelligence in `domains/intelligence/` —
+  deterministic risk scoring, aggregation, prioritization, trend vs previous
+  run and scanner coverage (see `docs/adr/0015`).
+- Sprint 7 ✅: remediation intelligence in `domains/remediation/` — finding
+  status lifecycle, deterministic guidance, fix availability and remediation
+  priority (see `docs/adr/0016`).
+- Sprint 8 ✅: deployment realism — scanner-bundled backend image, frontend
+  image, Docker Compose stack and stranded-run recovery (see
+  `docs/adr/0017`).
+- Sprint 9 ✅: final hardening, docs & demo — documentation sync, demo guide,
+  completion checklist and CI image-build validation. **Feature-complete.**

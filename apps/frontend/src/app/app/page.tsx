@@ -1,12 +1,6 @@
 "use client";
 
-import {
-  ArrowRight,
-  GitBranch,
-  LineChart,
-  Radar,
-  ShieldCheck,
-} from "lucide-react";
+import { Activity, GitBranch, Radar, ShieldCheck } from "lucide-react";
 import Link from "next/link";
 
 import { useAuth } from "@/lib/auth";
@@ -22,24 +16,23 @@ const LIVE_MODULES = [
   {
     title: "Manage repositories",
     description:
-      "Connect GitHub, import repositories and keep their metadata in sync. Analysis arrives in the next sprints.",
+      "Connect GitHub, import repositories and keep their metadata in sync.",
     icon: GitBranch,
     href: "/app/repositories",
   },
-];
-
-const COMING_SOON = [
   {
     title: "Run security analysis",
-    description: "SBOM, vulnerabilities, secrets and code analysis in one pass.",
-    icon: Radar,
+    description:
+      "Multi-scanner pipeline: Trivy, Gitleaks, Semgrep and Grype/Syft in one pass.",
+    icon: Activity,
     href: "/app/analysis",
   },
   {
-    title: "Forecast risk",
-    description: "Temporal repository intelligence predicts where risk is heading.",
-    icon: LineChart,
-    href: "/app/predictions",
+    title: "Intelligence & remediation",
+    description:
+      "Risk score, prioritized findings and remediation guidance on every run.",
+    icon: Radar,
+    href: "/app/analysis",
   },
 ];
 
@@ -53,8 +46,8 @@ export default function AppDashboardPage() {
           Welcome back{user?.full_name ? `, ${user.full_name.split(" ")[0]}` : ""}
         </h2>
         <p className="mt-1.5 text-sm text-muted-foreground">
-          Your workspace is ready. The DevSecOps pipeline ships over the next
-          sprints — here is what is coming.
+          Import a repository, run the multi-scanner pipeline and work the
+          findings — from raw scanner output to remediation in one place.
         </p>
       </section>
 
@@ -83,24 +76,24 @@ export default function AppDashboardPage() {
             <div>
               <dt className="text-xs text-muted-foreground">Pipeline stage</dt>
               <dd className="mt-1 text-sm font-medium text-foreground">
-                Sprint 3A · Repository integration
+                Multi-scanner analysis · Trivy, Gitleaks, Semgrep, Grype
               </dd>
             </div>
           </dl>
         </CardContent>
       </Card>
 
-      {/* Analysis status vocabulary — placeholder badges Sprint 3 cards reuse */}
+      {/* Analysis status vocabulary */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base">
-            <Radar className="size-4 text-primary" />
+            <Activity className="size-4 text-primary" />
             Analysis status
           </CardTitle>
           <CardDescription className="text-xs leading-5">
             Every repository carries one of these lifecycle states. Repository
-            cards and detail pages render them — analysis transitions arrive
-            with the scan pipeline.
+            cards and detail pages render them live as analyses queue, run and
+            complete.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -117,7 +110,7 @@ export default function AppDashboardPage() {
         </CardContent>
       </Card>
 
-      {/* Live modules (Sprint 3A) */}
+      {/* Live modules */}
       <section>
         <div className="mb-4 flex items-center justify-between">
           <h3 className="text-sm font-medium text-foreground">Available now</h3>
@@ -125,7 +118,7 @@ export default function AppDashboardPage() {
             href="/app/repositories"
             className="inline-flex items-center gap-1 text-xs text-primary transition-colors hover:text-primary/80"
           >
-            Open repositories <ArrowRight className="size-3" />
+            Open repositories <span aria-hidden>→</span>
           </Link>
         </div>
         <div className="grid gap-4 sm:grid-cols-3">
@@ -143,36 +136,7 @@ export default function AppDashboardPage() {
                 </CardHeader>
                 <CardContent>
                   <span className="inline-flex items-center gap-1 text-xs text-primary transition-opacity group-hover:opacity-100">
-                    Explore <ArrowRight className="size-3" />
-                  </span>
-                </CardContent>
-              </Card>
-            </Link>
-          ))}
-        </div>
-      </section>
-
-      {/* Coming-soon modules */}
-      <section>
-        <div className="mb-4">
-          <h3 className="text-sm font-medium text-foreground">Coming soon</h3>
-        </div>
-        <div className="grid gap-4 sm:grid-cols-3">
-          {COMING_SOON.map((item) => (
-            <Link key={item.title} href={item.href} className="group">
-              <Card className="h-full transition-colors group-hover:border-primary/40">
-                <CardHeader>
-                  <div className="mb-3 flex size-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                    <item.icon className="size-5" />
-                  </div>
-                  <CardTitle className="text-sm">{item.title}</CardTitle>
-                  <CardDescription className="text-xs leading-5">
-                    {item.description}
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <span className="inline-flex items-center gap-1 text-xs text-primary opacity-0 transition-opacity group-hover:opacity-100">
-                    Explore <ArrowRight className="size-3" />
+                    Open <span aria-hidden>→</span>
                   </span>
                 </CardContent>
               </Card>

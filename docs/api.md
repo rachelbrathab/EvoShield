@@ -2,7 +2,7 @@
 
 > The authoritative contract is the FastAPI OpenAPI schema at
 > `/openapi.json` (see `docs/adr/0004-api-contract.md`). This document is the
-> human-readable reference for the v1 surface, current as of Sprint 2.
+> human-readable reference for the v1 surface, current as of Sprint 9.
 
 Base URL: `http://localhost:8000` (dev) — `/api/v1` prefix on all endpoints.
 
@@ -243,3 +243,56 @@ Delete a **terminal** run record. `204` on success.
   so the frontend can go straight from form to the protected dashboard.
 - The local provider is the dev default (`AUTH_PROVIDER=auto` picks Supabase
   when credentials are configured). See `docs/adr/0005-identity-auth.md`.
+
+## Findings (Sprint 5A+)
+
+Auth required. Findings are scoped through the owning analysis run's
+repository — another user's findings return `404`.
+
+### GET `/api/v1/analysis/{analysis_id}/findings`
+
+Paginated findings for one analysis run. Query params: `page` (default 1),
+`page_size` (1–100, default 50), `severity`, `finding_type` (both optional
+exact-match filters). Each finding carries `title`, `description`, `severity`
+(`critical|high|medium|low`), `finding_type` (`vulnerability|secret|code_issue|
+dependency`), `scanner`, `location_*` fields, `fix_available` and raw-scanner
+identifiers — **never** secret values or source snippets.
+
+### GET `/api/v1/repositories/{repository_id}/findings`
+
+Same shape, aggregated across all runs of one repository (owner-scoped).
+
+## Intelligence (Sprint 6)
+
+Auth required. Computed on demand — never persisted.
+
+### GET `/api/v1/analysis/{analysis_id}/intelligence`
+
+Returns `risk_score` (0–100, lower = higher risk), `risk_level`
+(`critical|high|medium|low|healthy`), finding aggregation by severity/type/
+scanner, explained `risk_factors`, `prioritized_findings` (top findings with
+`priority_reason`), `trend` (comparison with the previous completed run of the
+same repository) and `scanner_coverage` (per-scanner status +
+`coverage_percentage`). See `docs/adr/0015-repository-intelligence.md`.
+
+## Remediation (Sprint 7)
+
+Auth required. Status transitions are owner-scoped and validated.
+
+### GET `/api/v1/analysis/{analysis_id}/remediation`
+
+Remediation overview: status summary (open/acknowledged/resolved/
+false_positive counts, `RemediationMetrics`), per-finding guidance (next
+action, why, fix availability) and remediation priority ordering.
+
+### GET `/api/v1/analysis/{analysis_id}/findings/{finding_id}/remediation`
+
+Guidance for a single finding.
+
+### PATCH `/api/v1/analysis/{analysis_id}/findings/{finding_id}/status`
+
+Update a finding's remediation status. Body:
+`{ "status": "acknowledged|resolved|false_positive", "note": "optional" }`.
+Returns `{ finding_id, status, updated_at }`. The lifecycle is
+`open → acknowledged → resolved | false_positive` (deterministic transitions,
+no workflow engine).

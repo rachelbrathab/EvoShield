@@ -13,6 +13,20 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.scanner_run import ScannerRun, ScannerRunStatus
 
 
+def _elapsed_ms(started_at: datetime, ended_at: datetime) -> int:
+    """Milliseconds between two timestamps, tolerating naive DB values.
+
+    SQLite returns naive datetimes even for ``DateTime(timezone=True)``
+    columns; Postgres returns aware ones. Mirrors the orchestrator's
+    tolerant helper so lifecycle math never crashes on a dialect switch.
+    """
+
+    def _utc(value: datetime) -> datetime:
+        return value if value.tzinfo is not None else value.replace(tzinfo=UTC)
+
+    return max(0, int((_utc(ended_at) - _utc(started_at)).total_seconds() * 1000))
+
+
 class ScannerRunRepository:
     """Persists and queries ScannerRun rows."""
 
@@ -103,7 +117,7 @@ class ScannerRunRepository:
         run.status = ScannerRunStatus.COMPLETED
         run.completed_at = now
         if run.started_at is not None:
-            run.duration_ms = max(0, int((now - run.started_at).total_seconds() * 1000))
+            run.duration_ms = _elapsed_ms(run.started_at, now)
         if finding_count is not None:
             run.finding_count = finding_count
         if component_count is not None:
@@ -127,7 +141,7 @@ class ScannerRunRepository:
         run.status = ScannerRunStatus.FAILED
         run.completed_at = now
         if run.started_at is not None:
-            run.duration_ms = max(0, int((now - run.started_at).total_seconds() * 1000))
+            run.duration_ms = _elapsed_ms(run.started_at, now)
         run.failure_reason = reason[:512]
         await self._session.flush()
         return run
@@ -143,7 +157,7 @@ class ScannerRunRepository:
         run.status = ScannerRunStatus.CANCELLED
         run.completed_at = now
         if run.started_at is not None:
-            run.duration_ms = max(0, int((now - run.started_at).total_seconds() * 1000))
+            run.duration_ms = _elapsed_ms(run.started_at, now)
         await self._session.flush()
         return run
 

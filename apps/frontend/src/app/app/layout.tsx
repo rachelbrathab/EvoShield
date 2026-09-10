@@ -2,14 +2,10 @@
 
 import {
   Activity,
-  BarChart3,
-  FileText,
   GitBranch,
   LayoutDashboard,
-  Lightbulb,
   LogOut,
   Menu,
-  Settings,
   ShieldCheck,
   X,
 } from "lucide-react";
@@ -41,18 +37,6 @@ const NAV_SECTIONS: Array<{ label: string; items: NavItem[] }> = [
       { label: "Repositories", href: "/app/repositories", icon: GitBranch },
       { label: "Analysis", href: "/app/analysis", icon: Activity },
     ],
-  },
-  {
-    label: "Insights",
-    items: [
-      { label: "Predictions", href: "/app/predictions", icon: BarChart3, soon: true },
-      { label: "Recommendations", href: "/app/recommendations", icon: Lightbulb, soon: true },
-      { label: "Reports", href: "/app/reports", icon: FileText, soon: true },
-    ],
-  },
-  {
-    label: "Administration",
-    items: [{ label: "Settings", href: "/app/settings", icon: Settings, soon: true }],
   },
 ];
 

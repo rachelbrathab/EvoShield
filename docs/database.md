@@ -161,14 +161,15 @@ Pydantic rejects them at the API contract boundary. New states are added as
 Python `StrEnum` members **without a schema migration**, and the same code
 works on both Postgres and SQLite. See `docs/adr/0006-analysis-status.md`.
 
-## Future tables (owned by later sprints)
+## Later-sprint tables (shipped)
 
 | Table | Sprint | Owner domain | Purpose |
 | --- | --- | --- | --- |
-| `findings` | 5 | `scanners` | Normalized scan results (tool-agnostic) |
-| `intelligence_*` | 6 | `intelligence` | Temporal risk features |
-| `predictions` | 7 | `prediction` | Model outputs + confidence |
-| `recommendations` | 8 | `recommendation` | Remediation guidance |
+| `scanner_runs` | 5C.1 | `scanners` | Per-scanner execution record (status, timing, error) |
+| `findings` | 5A | `scanners` | Normalized scan results (tool-agnostic) |
+| `finding_statuses` | 7 | `remediation` | Per-finding remediation lifecycle state |
 
-These are deliberately separate tables: scanners plug into the existing
+Intelligence and remediation are **computed on demand** from findings and
+scanner runs — no derived/aggregate tables are persisted. These are
+deliberately separate tables: scanners plug into the existing
 `analysis_status` mechanism and never add columns to `repositories`.

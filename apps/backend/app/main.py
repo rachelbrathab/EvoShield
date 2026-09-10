@@ -6,6 +6,7 @@ HTTP surface in `api/routers`.
 """
 
 import logging
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -19,6 +20,33 @@ from app.core.security import apply_security_middleware
 logger = logging.getLogger(__name__)
 
 
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Startup/shutdown hooks.
+
+    Startup runs the stranded-run reaper (Sprint 8): in-process background
+    tasks die with the process, so any run still ``queued``/``running`` after
+    a restart is orphaned forever — blocking re-starts via the DB-level
+    single-active-run guard. Marking them failed keeps the repository
+    lifecycle honest and re-startable. See app/domains/analysis/reaper.py.
+    """
+    from app.db.session import session_factory
+    from app.domains.analysis.reaper import recover_stranded_runs
+
+    recovered = 0
+    try:
+        async with session_factory() as session:
+            recovered = len(await recover_stranded_runs(session))
+    except Exception:
+        # Recovery must never prevent the API from serving.
+        logger.exception("Stranded-run recovery failed at startup")
+    else:
+        if recovered:
+            logger.warning("Recovered %d stranded analysis run(s) at startup", recovered)
+
+    yield
+
+
 def create_app() -> FastAPI:
     """Build and configure the FastAPI application."""
     settings = get_settings()
@@ -27,9 +55,12 @@ def create_app() -> FastAPI:
     app = FastAPI(
         title=settings.app_name,
         version=settings.app_version,
-        description="Backend API for EvoShield — predictive software supply chain risk assessment.",
+        description=(
+            "Backend API for EvoShield — unified repository security intelligence and remediation."
+        ),
         docs_url="/docs" if settings.environment != "production" else None,
         redoc_url=None,
+        lifespan=lifespan,
     )
 
     # Order matters: Starlette wraps the earliest-added middleware outermost.
