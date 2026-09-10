@@ -54,12 +54,15 @@ services:
         condition: service_healthy
       migrate:
         condition: service_completed_successfully
+    env_file:
+      - .env.compose
     environment:
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-evoshield}:${POSTGRES_PASSWORD:-evoshield}@db:5432/${POSTGRES_DB:-evoshield}
       ENVIRONMENT: ${ENVIRONMENT:-production}
       ALLOWED_HOSTS: '["backend","localhost","127.0.0.1"]'
       CORS_ORIGINS: '["${FRONTEND_PUBLIC_URL:-http://localhost:3000}"]'
       FRONTEND_URL: ${FRONTEND_PUBLIC_URL:-http://localhost:3000}
+      SESSION_COOKIE_NAME: ${SESSION_COOKIE_NAME:-evoshield_session}
       SESSION_JWT_SECRET: ${SESSION_JWT_SECRET:?Set SESSION_JWT_SECRET in .env.compose (32+ bytes)}
       SESSION_COOKIE_SECURE: ${SESSION_COOKIE_SECURE:-false}
       GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID:-}
@@ -74,7 +77,6 @@ services:
       XDG_CACHE_HOME: /tmp/scanner-cache
     volumes:
       - scanner-cache:/tmp/scanner-cache
-      # Writable workspace for repository clones inside the non-root container.
       - scan-workspace:/tmp/evoshield-scans
     ports:
       - "${BACKEND_PORT:-8000}:8000"

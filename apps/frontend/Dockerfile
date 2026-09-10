@@ -33,6 +33,12 @@ RUN addgroup --system --gid 1001 nodejs \
 COPY --from=builder /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
+# The standalone output trims node_modules to only packages Next.js deems
+# necessary at runtime. @base-ui/react is used by client components and its
+# modules are inlined into the client chunk, but the server bundle still
+# references base-ui sub-path imports (e.g. base-ui/react/button/Button.mjs)
+# that must resolve from node_modules at runtime.
+COPY --from=deps --chown=nextjs:nodejs /app/node_modules ./node_modules
 
 USER nextjs
 

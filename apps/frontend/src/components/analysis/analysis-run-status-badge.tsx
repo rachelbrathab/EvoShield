@@ -38,7 +38,6 @@ export function AnalysisRunStatusBadge({
         className={cn(
           "size-1.5 shrink-0 rounded-full",
           meta.dot,
-          isRunning && "animate-pulse",
         )}
       />
       {meta.label}

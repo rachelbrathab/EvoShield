@@ -121,17 +121,13 @@ class GitHubRepositorySource:
 
         # Use a temporary credential helper to pass the token without
         # embedding it in the URL or any command-line argument.
+        #
+        # Git supports per-command config via GIT_CONFIG_COUNT / GIT_CONFIG_KEY_n /
+        # GIT_CONFIG_VALUE_n environment variables, which avoids needing a git repo
+        # directory to exist before the clone (the workspace is a fresh temp dir).
         credential_helper_path = None
         try:
             credential_helper_path = _create_credential_helper(token)
-
-            # Configure git to use our credential helper
-            await _run_git(
-                self._executable,
-                ["config", "credential.helper", f"!{credential_helper_path}"],
-                cwd=workspace_path,
-                timeout_seconds=10,
-            )
 
             # Build clone command — no token in any argument
             clone_args = [
@@ -148,11 +144,21 @@ class GitHubRepositorySource:
                 clone_args.insert(4, "--branch")
                 clone_args.insert(5, branch)
 
+            # Configure the credential helper for this single git invocation
+            # via environment variables rather than `git config` (which would
+            # fail because the workspace is not yet a git repository).
+            env = {
+                "GIT_CONFIG_COUNT": "1",
+                "GIT_CONFIG_KEY_0": "credential.helper",
+                "GIT_CONFIG_VALUE_0": f"!{credential_helper_path}",
+            }
+
             await _run_git(
                 self._executable,
                 clone_args,
                 cwd=None,
                 timeout_seconds=self._timeout_seconds,
+                env=env,
             )
 
             repo_path = workspace_path / "repo"
@@ -247,7 +253,7 @@ def _create_credential_helper(token: str) -> str:
     )
     try:
         content = f"""#!/bin/sh
-# EvoShield temporary credential helper — reads from stdin, emits token.
+# EvoShield temporary credential helper - reads from stdin, emits token.
 # This file is auto-deleted after the git clone operation.
 read line
 case "$line" in
@@ -263,8 +269,14 @@ esac
         os.close(fd)
         os.chmod(helper_path, stat.S_IRUSR | stat.S_IWUSR | stat.S_IXUSR)
     except Exception:
-        os.close(fd) if not os.get_inheritable(fd) else None  # type: ignore[union-attr]
-        os.unlink(helper_path)
+        try:
+            os.close(fd)
+        except OSError:
+            pass
+        try:
+            os.unlink(helper_path)
+        except OSError:
+            pass
         raise
 
     return helper_path
@@ -286,6 +298,7 @@ async def _run_git(
     *,
     cwd: str | Path | None = None,
     timeout_seconds: float = 60.0,
+    env: dict[str, str] | None = None,
 ) -> tuple[str, str]:
     """Run a git command safely via ``create_subprocess_exec``.
 
@@ -302,14 +315,16 @@ async def _run_git(
     import asyncio
 
     cmd_args = [executable, *args]
-    logger.debug("Running: %s [args hidden for security]", executable)
+    logger.debug("Running git command (executable=%s)", executable)
 
     try:
         proc = await asyncio.create_subprocess_exec(
             *cmd_args,
+            stdin=asyncio.subprocess.DEVNULL,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
             cwd=str(cwd) if cwd else None,
+            env=env,
         )
         stdout_bytes, stderr_bytes = await asyncio.wait_for(
             proc.communicate(),

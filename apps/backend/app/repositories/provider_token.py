@@ -13,14 +13,20 @@ from datetime import datetime
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.domains.identity.repository import UserRepository
 from app.models.provider_token import ProviderToken
 
 
 class ProviderTokenRepository:
-    """Reads and writes per-user provider access tokens."""
+    """Reads and writes per-user provider access tokens.
+
+    Depends on `UserRepository` for the application-side user lookup used
+    when storing a token before the profile row has been committed.
+    """
 
     def __init__(self, session: AsyncSession) -> None:
         self._session = session
+        self._user_repo = UserRepository(session)
 
     async def get_access_token(self, user_id: uuid.UUID, provider: str = "github") -> str | None:
         """Return the stored token for (user, provider), or None if absent."""

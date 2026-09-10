@@ -87,7 +87,17 @@ class IdentityService:
         """Persist the GitHub access token for the profile's user."""
         user_id = resolve_user_id(auth_user.provider, auth_user.id)
         async with session_factory() as session:
+            # Ensure the application-side user profile row exists before
+            # storing the upstream token. `provider_tokens.user_id` FKs
+            # `users.id`, which PostgreSQL enforces with `ON DELETE CASCADE`.
+            # SQLite test databases do not enforce FKs by default, so the
+            # integration tests already create the user row in the scenario;
+            # this makes the live OAuth path robust against that ordering.
             repo = ProviderTokenRepository(session)
+            user = await repo._user_repo.get_by_id(user_id)
+            if user is None:
+                user = await repo._user_repo.upsert_from_auth(auth_user)
+                await session.flush()
             await repo.upsert(
                 user_id=user_id,
                 provider="github",

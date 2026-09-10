@@ -30,6 +30,7 @@ import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
@@ -98,33 +99,35 @@ export const RepositoryCard = memo(function RepositoryCard({
             }
           />
           <DropdownMenuContent align="end" className="w-44">
-            <DropdownMenuLabel>{repository.full_name}</DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem
-              render={<Link href={`/app/repositories/${repository.id}`} />}
-            >
-              <Eye className="size-4" />
-              View details
-            </DropdownMenuItem>
-            <DropdownMenuItem disabled={syncing} onClick={() => onSync(repository)}>
-              <RefreshCw className={syncing ? "animate-spin" : ""} />
-              {syncing ? "Syncing…" : "Refresh metadata"}
-            </DropdownMenuItem>
-            {repository.html_url ? (
+            <DropdownMenuGroup>
+              <DropdownMenuLabel>{repository.full_name}</DropdownMenuLabel>
+              <DropdownMenuSeparator />
               <DropdownMenuItem
-                render={
-                  <a href={repository.html_url} target="_blank" rel="noreferrer noopener" />
-                }
+                render={<Link href={`/app/repositories/${repository.id}`} />}
               >
-                <ExternalLink className="size-4" />
-                Open on GitHub
+                <Eye className="size-4" />
+                View details
               </DropdownMenuItem>
-            ) : null}
-            <DropdownMenuSeparator />
-            <DropdownMenuItem variant="destructive" onClick={() => onDelete(repository)}>
-              <Trash2 className="size-4" />
-              Remove
-            </DropdownMenuItem>
+              <DropdownMenuItem disabled={syncing} onClick={() => onSync(repository)}>
+                <RefreshCw className={syncing ? "animate-spin" : ""} />
+                {syncing ? "Syncing…" : "Refresh metadata"}
+              </DropdownMenuItem>
+              {repository.html_url ? (
+                <DropdownMenuItem
+                  render={
+                    <a href={repository.html_url} target="_blank" rel="noreferrer noopener" />
+                  }
+                >
+                  <ExternalLink className="size-4" />
+                  Open on GitHub
+                </DropdownMenuItem>
+              ) : null}
+              <DropdownMenuSeparator />
+              <DropdownMenuItem variant="destructive" onClick={() => onDelete(repository)}>
+                <Trash2 className="size-4" />
+                Remove
+              </DropdownMenuItem>
+            </DropdownMenuGroup>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>

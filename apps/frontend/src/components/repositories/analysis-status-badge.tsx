@@ -22,19 +22,27 @@ export function AnalysisStatusBadge({
   className?: string;
 }) {
   const meta = ANALYSIS_STATUS_META[status];
-  const isAnalyzing = status === "analyzing";
+  if (!meta) {
+    // Defensive: should never happen with the typed AnalysisStatus union,
+    // but a future backend value must not crash the UI.
+    return (
+      <Badge variant="outline" className={cn("gap-1.5 text-xs", className)}>
+        <span aria-hidden className="size-1.5 shrink-0 rounded-full bg-zinc-400" />
+        Unknown
+      </Badge>
+    );
+  }
 
   return (
     <Badge
       variant="outline"
-      className={cn("gap-1.5 text-xs", isAnalyzing && "border-blue-500/40", className)}
+      className={cn("gap-1.5 text-xs", className)}
     >
       <span
         aria-hidden
         className={cn(
           "size-1.5 shrink-0 rounded-full",
           meta.dot,
-          isAnalyzing && "animate-pulse",
         )}
       />
       {meta.label}
