@@ -33,12 +33,15 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 # Runtime OS dependencies:
 #   git        — repository acquisition clones with the system git
+#   openssh-client — deploy-key acquisition clones over SSH (ssh-keygen,
+#                ssh; ADR 0018)
 #   ca-certificates, curl — TLS trust for scanner downloads + the healthcheck
 #   libgcc-s1  — glibc runtime needed by the Go scanner binaries
 #   procps     — `pkill` for subprocess cleanup guarantees
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
         git \
+        openssh-client \
         ca-certificates \
         curl \
         libgcc-s1 \

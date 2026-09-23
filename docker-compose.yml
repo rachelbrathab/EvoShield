@@ -45,6 +45,18 @@ services:
       "alembic upgrade head && python -m app.cli recover-runs"
     restart: "no"
 
+  scanner-db-init:
+    build:
+      context: ./apps/backend
+    environment:
+      XDG_CACHE_HOME: /tmp/scanner-cache
+      GRYPE_DB_AUTO_UPDATE: "true"
+    volumes:
+      - scanner-cache:/tmp/scanner-cache
+    entrypoint: ["grype"]
+    command: ["db", "update"]
+    restart: "no"
+
   backend:
     build:
       context: ./apps/backend
@@ -53,6 +65,8 @@ services:
       db:
         condition: service_healthy
       migrate:
+        condition: service_completed_successfully
+      scanner-db-init:
         condition: service_completed_successfully
     env_file:
       - .env.compose
@@ -74,6 +88,7 @@ services:
       SEMGREP_EXECUTABLE: semgrep
       SYFT_EXECUTABLE: syft
       GRYPE_EXECUTABLE: grype
+      GRYPE_DB_AUTO_UPDATE: "false"
       XDG_CACHE_HOME: /tmp/scanner-cache
     volumes:
       - scanner-cache:/tmp/scanner-cache

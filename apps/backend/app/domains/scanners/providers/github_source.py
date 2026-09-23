@@ -1,34 +1,66 @@
 """GitHub repository source — acquires a repository checkout for scanning.
 
 This adapter clones a GitHub repository into a managed temporary workspace
-using the authenticated user's stored access token.  The token is never
-logged, never passed as a command-line argument, and never written to disk.
+using an **ephemeral SSH deploy key** (ADR 0018).
+
+GitHub no longer accepts OAuth app tokens as git-over-HTTPS passwords for
+private repositories ("Password authentication is not supported for Git
+operations"), so the acquisition flow is:
+
+    1. Resolve the user's OAuth token (via ``token_resolver``).
+    2. Generate a throwaway ed25519 keypair inside the workspace.
+    3. Register the public half as a read-only deploy key on the scanned
+       repository (REST API, token in the Authorization header only).
+    4. Clone over SSH with ``GIT_SSH_COMMAND`` pinned to that key.
+    5. Delete the deploy key and shred the private key — in success AND
+       failure paths.
 
 Security measures:
-- Token used only in HTTP Authorization header (not shell arguments)
-- ``git credential helper`` is used to pass credentials to git subprocesses
-- Temporary workspace is cleaned up in ``finally`` blocks
+- OAuth token used only in HTTP Authorization headers (never git args/URLs)
+- Deploy keys are ``read_only`` and scoped to a single repository
+- Private key lives only inside the acquisition workspace (mode 0600)
+- Temporary workspace cleaned up in ``finally`` blocks
 - All paths validated before subprocess execution
 - No ``shell=True`` anywhere
-- Token never appears in log messages
+- No secret appears in log messages
 
 Architecture:
     TrivyProvider.execute()
         → GitHubRepositorySource.acquire()
-            → git clone via temporary credential helper
+            → ephemeral deploy key + SSH clone
             → returns workspace path
         → Trivy scans the workspace
         → GitHubRepositorySource.cleanup() or context-manager cleanup
 """
 
 import logging
-import os
 import shutil
 import tempfile
 from collections.abc import Awaitable, Callable
 from pathlib import Path
 
+from app.domains.scanners.providers.github_deploy_key import (
+    DeployKeyError,
+    EphemeralDeployKey,
+)
+
 logger = logging.getLogger(__name__)
+
+# GitHub's SSH host keys, pinned per github.com's published SSH fingerprints
+# (docs.github.com/authentication/keeping-your-account-and-data-secure/
+# githubs-ssh-key-fingerprints).  Pinned host keys prevent MITM during the
+# clone; no ssh-keyscan / TOFU needed.
+#
+# The ephemeral deploy-key acquisition clones over SSH *through the GitHub
+# SSH gateway* (ssh.github.com:443) when the backend container cannot reach
+# github.com:22 (ADR 0018 + GitHub docs:
+# docs.github.com/en/authentication/troubleshooting-ssh/using-ssh-over-the-https-port).
+# ssh.github.com presents the same ED25519 host key material as github.com, so
+# both hosts are pinned below.
+_GITHUB_HOST_KEYS = (
+    "github.com ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOMqqnkVzrm0SdG6UOoqKLsabgH5C9okWi0dh2l9GKJl",
+    "ssh.github.com ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOMqqnkVzrm0SdG6UOoqKLsabgH5C9okWi0dh2l9GKJl",
+)
 
 
 class RepositoryAcquisitionError(Exception):
@@ -111,7 +143,10 @@ class GitHubRepositorySource:
 
         workspace_dir = tempfile.mkdtemp(prefix=workspace_prefix)
         workspace_path = Path(workspace_dir)
-        repo_url = f"https://github.com/{full_name}.git"
+        # Clone over GitHub's SSH gateway (ssh.github.com:443) so that a private
+        # repository can be acquired even when github.com:22 is blocked by the
+        # deployment environment (the documented GitHub SSH-over-HTTPS workaround).
+        clone_url = f"ssh://git@ssh.github.com:443/{full_name}.git"
 
         logger.info(
             "Acquiring repository %s into %s",
@@ -119,38 +154,38 @@ class GitHubRepositorySource:
             workspace_dir,
         )
 
-        # Use a temporary credential helper to pass the token without
-        # embedding it in the URL or any command-line argument.
-        #
-        # Git supports per-command config via GIT_CONFIG_COUNT / GIT_CONFIG_KEY_n /
-        # GIT_CONFIG_VALUE_n environment variables, which avoids needing a git repo
-        # directory to exist before the clone (the workspace is a fresh temp dir).
-        credential_helper_path = None
+        # Ephemeral deploy-key flow (ADR 0018): keypair → read-only deploy
+        # key on this one repository → SSH clone → delete key + shred.
+        deploy_key: EphemeralDeployKey | None = None
         try:
-            credential_helper_path = _create_credential_helper(token)
+            deploy_key = await EphemeralDeployKey.create(
+                access_token=token,
+                full_name=full_name,
+                workspace=workspace_path,
+            )
 
-            # Build clone command — no token in any argument
+            # Build clone command — no credential in any argument; the key
+            # reaches ssh via GIT_SSH_COMMAND (an env var, not a shell).
             clone_args = [
-                self._executable,
                 "clone",
                 "--depth",
                 "1",
                 "--single-branch",
                 "--no-tags",
-                repo_url,
+                clone_url,
                 str(workspace_path / "repo"),
             ]
             if branch:
                 clone_args.insert(4, "--branch")
                 clone_args.insert(5, branch)
 
-            # Configure the credential helper for this single git invocation
-            # via environment variables rather than `git config` (which would
-            # fail because the workspace is not yet a git repository).
             env = {
-                "GIT_CONFIG_COUNT": "1",
-                "GIT_CONFIG_KEY_0": "credential.helper",
-                "GIT_CONFIG_VALUE_0": f"!{credential_helper_path}",
+                "GIT_SSH_COMMAND": _ssh_command(
+                    str(deploy_key.private_key_path),
+                    str(_write_pinned_known_hosts(workspace_path)),
+                ),
+                # Clone is a one-shot transfer; never prompt.
+                "GIT_TERMINAL_PROMPT": "0",
             }
 
             await _run_git(
@@ -171,6 +206,11 @@ class GitHubRepositorySource:
             logger.info("Repository %s acquired successfully", full_name)
             return WorkspaceHandle(workspace_path)
 
+        except DeployKeyError as exc:
+            # Deploy-key lifecycle failure (keygen / REST API).  The code
+            # taxonomy is shared with acquisition errors by design.
+            shutil.rmtree(workspace_dir, ignore_errors=True)
+            raise RepositoryAcquisitionError(str(exc), code=exc.code) from exc
         except RepositoryAcquisitionError:
             # Clean up on failure
             shutil.rmtree(workspace_dir, ignore_errors=True)
@@ -183,10 +223,9 @@ class GitHubRepositorySource:
                 code="acquisition_failed",
             ) from exc
         finally:
-            # Remove the credential helper file
-            if credential_helper_path is not None:
-                _cleanup_credential_helper(credential_helper_path)
-
+            # Remove the deploy key and destroy the private key on every path.
+            if deploy_key is not None:
+                await deploy_key.cleanup()
 
 class WorkspaceHandle:
     """A managed temporary workspace that can be cleaned up."""
@@ -235,61 +274,36 @@ def _validate_full_name(full_name: str) -> bool:
     return bool(re.fullmatch(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", full_name))
 
 
-def _create_credential_helper(token: str) -> str:
-    """Create a temporary executable credential helper script.
+def _ssh_command(private_key_path: str, known_hosts_path: str) -> str:
+    """Build the GIT_SSH_COMMAND value for one clone.
 
-    The script responds to git's credential protocol (get/store/erase)
-    by emitting the token on ``credential-fill``.  The file is executable
-    and removed after use.
-
-    SECURITY: The token is written to a file that is readable only by the
-    current process (mode 0o600) and deleted immediately after the clone.
+    git executes GIT_SSH_COMMAND through the user's shell, so every
+    variable part is ``shlex.quote``d.  All options are fixed: non-interactive,
+    single identity, no agent, and host keys pinned to GitHub's published
+    fingerprints via a workspace-local known_hosts file (real pinning —
+    not TOFU, no global state).
     """
-    import stat
+    import shlex
 
-    fd, helper_path = tempfile.mkstemp(
-        prefix="evoshield_cred_",
-        suffix=".sh",
+    return (
+        f"ssh -i {shlex.quote(private_key_path)}"
+        " -o IdentitiesOnly=yes"
+        " -o BatchMode=yes"
+        " -o StrictHostKeyChecking=yes"
+        f" -o UserKnownHostsFile={shlex.quote(known_hosts_path)}"
     )
-    try:
-        content = f"""#!/bin/sh
-# EvoShield temporary credential helper - reads from stdin, emits token.
-# This file is auto-deleted after the git clone operation.
-read line
-case "$line" in
-    protocol=*)
-        echo "protocol=https"
-        echo "host=github.com"
-        echo "username=oauth"
-        echo "password={token}"
-        ;;
-esac
-"""
-        os.write(fd, content.encode())
-        os.close(fd)
-        os.chmod(helper_path, stat.S_IRUSR | stat.S_IWUSR | stat.S_IXUSR)
-    except Exception:
-        try:
-            os.close(fd)
-        except OSError:
-            pass
-        try:
-            os.unlink(helper_path)
-        except OSError:
-            pass
-        raise
-
-    return helper_path
 
 
-def _cleanup_credential_helper(path: str) -> None:
-    """Securely remove the credential helper script."""
-    try:
-        os.unlink(path)
-    except FileNotFoundError:
-        pass
-    except OSError:
-        logger.warning("Failed to remove credential helper %s", path)
+def _write_pinned_known_hosts(workspace: Path) -> Path:
+    """Write a known_hosts file containing GitHub's pinned host keys.
+
+    The file includes both ``github.com`` and ``ssh.github.com`` because the
+    SSH gateway uses ``ssh.github.com`` as the SSH server while the repository
+    URL still identifies the repository on GitHub.
+    """
+    known_hosts = workspace / "known_hosts"
+    known_hosts.write_text("\n".join(_GITHUB_HOST_KEYS) + "\n")
+    return known_hosts
 
 
 async def _run_git(

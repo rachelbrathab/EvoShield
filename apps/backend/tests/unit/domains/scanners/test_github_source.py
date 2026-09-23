@@ -16,7 +16,9 @@ from app.domains.scanners.providers.github_source import (
     GitHubRepositorySource,
     RepositoryAcquisitionError,
     WorkspaceHandle,
+    _ssh_command,
     _validate_full_name,
+    _write_pinned_known_hosts,
 )
 
 # ── Full name validation ──────────────────────────────────────────────
@@ -171,9 +173,15 @@ class TestWorkspaceLifecycle:
                     os.makedirs(target, exist_ok=True)
             return ("", "")
 
-        with patch(
-            "app.domains.scanners.providers.github_source._run_git",
-            side_effect=_mock_run_git,
+        with (
+            patch(
+                "app.domains.scanners.providers.github_source._run_git",
+                side_effect=_mock_run_git,
+            ),
+            patch(
+                "app.domains.scanners.providers.github_source.EphemeralDeployKey.create",
+                new_callable=AsyncMock,
+            ),
         ):
             workspace = await source.acquire("octocat/Hello-World")
             try:
@@ -207,75 +215,177 @@ class TestSecurity:
     """Verify security measures: no token leakage, safe subprocess calls."""
 
     @pytest.mark.asyncio
-    async def test_token_not_in_clone_url(self, source: GitHubRepositorySource) -> None:
-        """Token must never be embedded in a URL."""
-        token = await source._token_resolver()
-        with patch(
-            "app.domains.scanners.providers.github_source._run_git",
-            new_callable=AsyncMock,
-        ) as mock_git:
+    async def test_token_not_in_command_args(
+        self, mock_token: str, source: GitHubRepositorySource
+    ) -> None:
+        """Token must not appear in any git argument or env value."""
+        with (
+            patch(
+                "app.domains.scanners.providers.github_source._run_git",
+                new_callable=AsyncMock,
+            ) as mock_git,
+            patch(
+                "app.domains.scanners.providers.github_source.EphemeralDeployKey.create",
+                new_callable=AsyncMock,
+            ),
+        ):
             mock_git.return_value = ("", "")
-            try:
-                await source.acquire("octocat/Hello-World")
-            except RepositoryAcquisitionError:
-                pass  # may fail due to mock, that's OK
-
-            # Check that none of the git calls contained the token
-            for call_args in mock_git.call_args_list:
-                args = call_args[0] if call_args[0] else []
-                for arg in args:
-                    if isinstance(arg, str) and token:
-                        assert token not in arg or "password=" in arg
-
-    @pytest.mark.asyncio
-    async def test_token_not_in_command_args(self, mock_token: str) -> None:
-        """Token must not appear in any subprocess argument."""
-        with patch(
-            "app.domains.scanners.providers.github_source._run_git",
-            new_callable=AsyncMock,
-        ) as mock_git:
-            mock_git.return_value = ("", "")
-            source = GitHubRepositorySource(
-                token_resolver=AsyncMock(return_value=mock_token),
-            )
             try:
                 await source.acquire("octocat/Hello-World")
             except RepositoryAcquisitionError:
                 pass
 
-            # Verify token is not in any argument
             for call in mock_git.call_args_list:
                 args_list = call[0] if call[0] else []
                 for item in args_list:
                     if isinstance(item, str):
                         assert mock_token not in item, f"Token leaked into git argument: {item!r}"
+                env = call[1].get("env") or call.kwargs.get("env") or {}
+                for key, value in env.items():
+                    assert mock_token not in value, f"Token leaked into env {key}"
 
+    @pytest.mark.asyncio
+    async def test_clone_uses_ssh_url_not_https(self, source: GitHubRepositorySource) -> None:
+        """Acquisition must clone over SSH, never HTTPS-with-token."""
+        with (
+            patch(
+                "app.domains.scanners.providers.github_source._run_git",
+                new_callable=AsyncMock,
+            ) as mock_git,
+            patch(
+                "app.domains.scanners.providers.github_source.EphemeralDeployKey.create",
+                new_callable=AsyncMock,
+            ),
+        ):
+            mock_git.return_value = ("", "")
+            try:
+                await source.acquire("octocat/Hello-World")
+            except RepositoryAcquisitionError:
+                pass
 
-class TestCredentialHelper:
-    """Test the temporary credential helper script creation and cleanup."""
+            assert mock_git.call_args_list, "clone was never invoked"
+            args_list = mock_git.call_args_list[0][0]
+            flattened = " ".join(str(a) for a in args_list)
+            assert args_list[0] == "git"
+            assert args_list[1][0] == "clone"
+            assert "git" not in args_list[1]
+            assert "ssh://git@ssh.github.com:443/octocat/Hello-World.git" in flattened
+            assert "https://" not in flattened
 
-    def test_creates_executable_helper(self, mock_token: str) -> None:
-        from app.domains.scanners.providers.github_source import _create_credential_helper
+    @pytest.mark.asyncio
+    async def test_ssh_command_pins_known_hosts(self, source: GitHubRepositorySource) -> None:
+        """GIT_SSH_COMMAND must pin GitHub's host key (no TOFU)."""
+        with (
+            patch(
+                "app.domains.scanners.providers.github_source._run_git",
+                new_callable=AsyncMock,
+            ) as mock_git,
+            patch(
+                "app.domains.scanners.providers.github_source.EphemeralDeployKey.create",
+                new_callable=AsyncMock,
+            ),
+        ):
+            mock_git.return_value = ("", "")
+            try:
+                await source.acquire("octocat/Hello-World")
+            except RepositoryAcquisitionError:
+                pass
 
-        path = _create_credential_helper(mock_token)
-        try:
-            assert os.path.exists(path)
-            assert os.access(path, os.X_OK)
-            # Verify the file contains the token (inside the helper script)
-            with open(path) as f:
-                content = f.read()
-            assert mock_token in content
-        finally:
-            os.unlink(path)
+            env = mock_git.call_args_list[0][1]["env"]
+            ssh_cmd = env["GIT_SSH_COMMAND"]
+            assert "IdentitiesOnly=yes" in ssh_cmd
+            assert "BatchMode=yes" in ssh_cmd
+            assert "StrictHostKeyChecking=yes" in ssh_cmd
+            assert "known_hosts" in ssh_cmd
+            assert "/dev/null" not in ssh_cmd  # real pinning, not TOFU
 
-    def test_helper_contains_protocol(self, mock_token: str) -> None:
-        from app.domains.scanners.providers.github_source import _create_credential_helper
+    # ── SSH gateway URL + known_hosts ─────────────────────────────────────
 
-        path = _create_credential_helper(mock_token)
-        try:
-            with open(path) as f:
-                content = f.read()
-            assert "protocol=https" in content
-            assert "host=github.com" in content
-        finally:
-            os.unlink(path)
+    def test_clone_url_does_not_allow_injection(self) -> None:
+        assert not _validate_full_name("octocat/../../bad")
+
+    def test_known_hosts_contains_both_github_hosts(self, tmp_path: Path) -> None:
+        text = _write_pinned_known_hosts(tmp_path).read_text()
+        assert "github.com " in text
+        assert "ssh.github.com " in text
+        assert "ssh-ed25519" in text
+
+    def test_ssh_command_retains_strict_verification(self, tmp_path: Path) -> None:
+        known_hosts = _write_pinned_known_hosts(tmp_path)
+        cmd = _ssh_command(
+            str(tmp_path / "id_ed25519"),
+            str(known_hosts),
+        )
+        assert "IdentitiesOnly=yes" in cmd
+        assert "BatchMode=yes" in cmd
+        assert "StrictHostKeyChecking=yes" in cmd
+        assert "UserKnownHostsFile=" in cmd
+
+    # ── Workflow / cleanup ──────────────────────────────────────────────
+
+    async def test_deploy_key_deleted_on_clone_failure(
+        self, source: GitHubRepositorySource
+    ) -> None:
+        """Clone failure must still remove the deploy key + shred the key."""
+        with (
+            patch(
+                "app.domains.scanners.providers.github_source._run_git",
+                side_effect=RepositoryAcquisitionError("clone failed", code="git_command_failed"),
+            ),
+            patch(
+                "app.domains.scanners.providers.github_source.EphemeralDeployKey.create",
+                new_callable=AsyncMock,
+            ) as mock_create,
+        ):
+            fake_key = mock_create.return_value
+            fake_key.cleanup = AsyncMock()
+            with pytest.raises(RepositoryAcquisitionError):
+                await source.acquire("octocat/Hello-World")
+            fake_key.cleanup.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_deploy_key_deleted_on_success(self, source: GitHubRepositorySource) -> None:
+        """Successful acquisition must also tear the deploy key down."""
+
+        async def _mock_run_git(*args: object, **kwargs: object) -> tuple[str, str]:
+            cmd_args = args[1] if len(args) > 1 and isinstance(args[1], list) else []
+            target = cmd_args[-1] if cmd_args else None
+            if isinstance(target, str):
+                os.makedirs(target, exist_ok=True)
+            return ("", "")
+
+        with (
+            patch(
+                "app.domains.scanners.providers.github_source._run_git",
+                side_effect=_mock_run_git,
+            ),
+            patch(
+                "app.domains.scanners.providers.github_source.EphemeralDeployKey.create",
+                new_callable=AsyncMock,
+            ) as mock_create,
+        ):
+            fake_key = mock_create.return_value
+            fake_key.cleanup = AsyncMock()
+            workspace = await source.acquire("octocat/Hello-World")
+            try:
+                assert workspace.path.exists()
+            finally:
+                workspace.cleanup()
+            fake_key.cleanup.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_deploy_key_api_error_maps_code(self, source: GitHubRepositorySource) -> None:
+        """A 403 (scope) from the deploy-key API becomes github_scope_insufficient."""
+        from app.domains.scanners.providers.github_deploy_key import DeployKeyError
+
+        with patch(
+            "app.domains.scanners.providers.github_source.EphemeralDeployKey.create",
+            new_callable=AsyncMock,
+            side_effect=DeployKeyError(
+                "GitHub refused to create the scan key.",
+                code="github_scope_insufficient",
+            ),
+        ):
+            with pytest.raises(RepositoryAcquisitionError) as exc_info:
+                await source.acquire("octocat/Hello-World")
+            assert exc_info.value.code == "github_scope_insufficient"

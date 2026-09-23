@@ -118,6 +118,25 @@ class TestGrypeRunnerCommandConstruction:
                 sbom_path.unlink()
 
     @pytest.mark.asyncio
+    async def test_grype_matches_warmed_sbom_without_database_update(self, tmp_path: Path) -> None:
+        runner = GrypeRunner(grype_executable="grype", grype_timeout_seconds=60)
+        sbom = tmp_path / "warmed-sbom.json"
+        sbom.write_text('{"bomFormat":"CycloneDX","components":[]}')
+
+        async def _mock_exec(*args, **kwargs):
+            mock_proc = MagicMock()
+            mock_proc.communicate = AsyncMock(return_value=(b'{"matches":[]}', b""))
+            mock_proc.returncode = 0
+            return mock_proc
+
+        with patch("asyncio.create_subprocess_exec", side_effect=_mock_exec) as mock_exec:
+            result = await runner.run_grype(sbom)
+
+        assert result.success is True
+        assert result.stdout == '{"matches":[]}'
+        assert mock_exec.call_args.kwargs["env"]["GRYPE_DB_AUTO_UPDATE"] == "false"
+
+    @pytest.mark.asyncio
     async def test_grype_uses_create_subprocess_exec(self, tmp_path: Path) -> None:
         runner = GrypeRunner(grype_executable="grype", grype_timeout_seconds=60)
 
@@ -141,6 +160,7 @@ class TestGrypeRunnerCommandConstruction:
 
             # Verify no shell=True
             assert "shell" not in call_args.kwargs or call_args.kwargs.get("shell") is not True
+            assert call_args.kwargs["env"]["GRYPE_DB_AUTO_UPDATE"] == "false"
 
 
 class TestGrypeRunnerTimeout:

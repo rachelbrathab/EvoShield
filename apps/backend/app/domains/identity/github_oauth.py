@@ -37,7 +37,11 @@ class GitHubOAuthClient:
             # Sprint 3A: `repo` lets EvoShield list and import the user's
             # (private) repositories and refresh their metadata. Narrower
             # scopes would break private-repo listing for the import flow.
-            "scope": "read:user user:email repo",
+            # ADR 0018: `write:public_key` lets the scanner acquisition
+            # register an ephemeral read-only deploy key on the repository
+            # being scanned — GitHub no longer accepts OAuth tokens as
+            # git-over-HTTPS passwords for private repositories.
+            "scope": "read:user user:email repo write:public_key",
             "state": state,
         }
         return f"{self.AUTHORIZE_URL}?{urlencode(params)}"

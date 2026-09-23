@@ -102,7 +102,7 @@ class IdentityService:
                 user_id=user_id,
                 provider="github",
                 access_token=access_token,
-                scope="read:user user:email repo",
+                scope="read:user user:email repo write:public_key",
             )
             await session.commit()
 

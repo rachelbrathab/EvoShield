@@ -82,7 +82,8 @@ def test_github_callback_persists_access_token() -> None:
             )
             assert len(rows) == 1
             assert rows[0].provider == "github"
-            assert rows[0].scope == "read:user user:email repo"
+            # ADR 0018: write:public_key added for ephemeral deploy-key creation.
+            assert rows[0].scope == "read:user user:email repo write:public_key"
 
     asyncio.run(scenario())
 

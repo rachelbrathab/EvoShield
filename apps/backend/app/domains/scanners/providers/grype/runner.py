@@ -236,6 +236,8 @@ class GrypeRunner:
                 "-o",
                 "json",
             ]
+            env = os.environ.copy()
+            env["GRYPE_DB_AUTO_UPDATE"] = "false"
 
             logger.info("Running Grype against SBOM")
 
@@ -243,6 +245,7 @@ class GrypeRunner:
                 *args,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
+                env=env,
             )
 
             stdout_bytes, stderr_bytes = await asyncio.wait_for(
